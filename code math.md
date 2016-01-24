@@ -4,19 +4,19 @@
 ### Loudness and Brightness
 
 Having brightness correspond to volume is an obvious enough feature, however its implementation was a bit of a design choice. Initially, I started with straight proportionality:
-<center>![linear proportionality](http://i.imgur.com/bAM95uO.gif) &nbsp;&nbsp;&nbsp;&nbsp;in the code as: `(volume / maxVol) * 255`</center>
+ ![linear proportionality](http://i.imgur.com/bAM95uO.gif) &nbsp;&nbsp;&nbsp;&nbsp;in the code as: `(volume / maxVol) * 255` 
 
 I found this method to be a little underwhelming, so I tried a more exponential approach to make lower ratios darker and higher ratios brighter:
 
-<center>![exponential](http://imgur.com/sqhPcq8.gif)&nbsp;&nbsp;&nbsp;&nbsp;in the code as: `pow(256, volume / maxVol) - 1`</center>
+ ![exponential](http://imgur.com/sqhPcq8.gif)&nbsp;&nbsp;&nbsp;&nbsp;in the code as: `pow(256, volume / maxVol) - 1` 
 
 This seemed a little too extreme, so the code currently uses a squared proportion:
 
-<center>![proportion^2](http://imgur.com/3amI46q.gif)&nbsp;&nbsp;&nbsp;&nbsp;in the code as: `pow(volume / maxVol, 2.0) * 255`</center>
+ ![proportion^2](http://imgur.com/3amI46q.gif)&nbsp;&nbsp;&nbsp;&nbsp;in the code as: `pow(volume / maxVol, 2.0) * 255` 
 
 This was used because it is a balance between the linear and exponential approaches, as can be seen graphically:
 
-<center>![bright graph](http://imgur.com/DPynqok.gif)</center>
+ ![bright graph](http://imgur.com/DPynqok.gif) 
 
 I encourage you to to try all methods to see which one you find to be the most pleasing. One other alternative is to raise the volume ratio to the power of 1.5 to get a slightly more linear output.
 
@@ -40,14 +40,14 @@ Rarely will you get an ordered sequence from the sound detector, and that's wher
 In this sequence, there is an trend toward lower inputs (i.e. volume readings, so in the program this would reflect a decreasing noise level). The sequenced average properly reflects this trend, whereas if we did a proper mathematical average it would still read as 5. The difference here is a little too nuanced to be of importance, so I'll demonstrate with some actual data:
 
 <table>
-<tr><td><center>All volumes were read out simultaneously during the same song. Some quiet was left at the end to demonstrate the difference between true and sequenced averages.</td></tr>
-<tr><th><center>Volume Readings, Straight from Sound Detector</center></th></tr>
+<tr><td> All volumes were read out simultaneously during the same song. Some quiet was left at the end to demonstrate the difference between true and sequenced averages.</td></tr>
+<tr><th> Volume Readings, Straight from Sound Detector </th></tr>
 <tr><td><img src="http://i.imgur.com/bYXGvKV.png" alt="vols"></td></tr>
-<tr><th><center>Volume Readings + Sequenced Average of Volumes<sub>(orange)</sub></center></th></tr>
+<tr><th> Volume Readings + Sequenced Average of Volumes<sub>(orange)</sub> </th></tr>
 <tr><td><img src="http://i.imgur.com/CLJKTkV.png" alt="vol+sa"></td></tr>
-<tr><th><center>Volume Readings + True Average of Volumes<sub>(green)</sub></center></th></tr>
+<tr><th> Volume Readings + True Average of Volumes<sub>(green)</sub> </th></tr>
 <tr><td><img src="http://i.imgur.com/3CgFLbo.png" alt="vol+av"></td></tr>
-<tr><th><center>Sequenced Average of Volumes<sub>(orange)</sub> + True Average of Volumes<sub>(green)</sub></center></th></tr>
+<tr><th> Sequenced Average of Volumes<sub>(orange)</sub> + True Average of Volumes<sub>(green)</sub> </th></tr>
 <tr><td><img src="http://i.imgur.com/MFDu64M.png" alt="av+sa"></td></tr>
 </table>
 
