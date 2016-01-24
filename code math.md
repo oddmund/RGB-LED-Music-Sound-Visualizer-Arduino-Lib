@@ -1,4 +1,5 @@
 The mathematics of the code are explained here for those of you who are curious or want clarification. Some of this is mentioned in the code itself, but without visual aid.
+
 ---
 
 Having brightness correspond to loudness is an obvious enough feature, however its implementation was a bit of a design choice. Initially, I started with straight proportionality:
