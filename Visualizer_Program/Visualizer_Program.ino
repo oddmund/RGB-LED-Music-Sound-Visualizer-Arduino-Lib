@@ -625,7 +625,7 @@ void CycleVisual() {
     }
 
     //Like before, this delay is to prevent a button press from affecting "maxVol."
-    if (!shuffle) delay(350);
+    delay(350);
 
     maxVol = 15; //Good to reset the maxVol for a fresh experience.
   }
