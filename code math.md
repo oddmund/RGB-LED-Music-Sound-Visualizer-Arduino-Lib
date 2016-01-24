@@ -40,7 +40,7 @@ Rarely will you get an ordered sequence from the sound detector, and that's wher
 In this sequence, there is an trend toward lower inputs (i.e. volume readings, so in the program this would reflect a decreasing noise level). The sequenced average properly reflects this trend, whereas if we did a proper mathematical average it would still read as 5. The difference here is a little too nuanced to be of importance, so I'll demonstrate with some actual data:
 
 <table>
-<tr><td> All volumes were read out simultaneously during the same song. Some quiet was left at the end to demonstrate the difference between true and sequenced averages.</td></tr>
+<tr><td> All values were read out simultaneously during the same song. Some quiet was left at the end to demonstrate the difference between true and sequenced averages.</td></tr>
 <tr><th> Volume Readings, Straight from Sound Detector </th></tr>
 <tr><td><img src="http://i.imgur.com/bYXGvKV.png" alt="vols"></td></tr>
 <tr><th> Volume Readings + Sequenced Average of Volumes<sub>(orange)</sub> </th></tr>
