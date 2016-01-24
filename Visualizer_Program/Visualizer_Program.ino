@@ -19,7 +19,7 @@
 #define BUTTON_3  4   //Button 3 toggles shuffle mode (automated changing of color and visual)
 
 //////////<Globals>
-//  These values either need to be remembered from the last pass of loop() or 
+//  These values either need to be remembered from the last pass of loop() or
 //  need to be accessed by several functions in one pass, so they need to be global.
 
 Adafruit_NeoPixel strand = Adafruit_NeoPixel(LED_TOTAL, LED_PIN, NEO_GRB + NEO_KHZ800);  //LED strand objetcs
@@ -96,7 +96,7 @@ void setup() {    //Like it's named, this gets ran before any other function.
 
   //Initialize seq[] with ordered list of all positions in the strand.
   for (int i = 0; i < strand.numPixels(); i++) seq[i] = i;
-  
+
   //Swaps every other value in seq[] for psuedo-random behavior
   for (int i = 0; i < strand.numPixels(); i += 2) {
     int8_t temp = seq[sizeof(seq) - i];
@@ -123,93 +123,24 @@ void loop() {  //This is where the magic happens. This loop produces each frame 
   if (volume > maxVol) maxVol = volume;
 
 
-  //////////<Button Readings>
+  //////////<Visual Cycling>
 
-  //If a button is pushed, it sends a "false" reading
-  if (!digitalRead(BUTTON_1)) {
+  //Check the Cycle* functions for specific instructions if you didn't include buttons in your design.
 
-shufflePallette:  //A "go to" marker to prevent redundant code for shuffle mode
+  CyclePalette();  //Changes palette for shuffle mode or button press.
 
-    palette++;     //This is this button's purpose, to change the color palette.
+  CycleVisual();   //Changes visualization for shuffle mode or button press.
 
-    gradient = 0; //Reset gradient to prevent any overflow that may occur.
+  ToggleShuffle(); //Toggles shuffle mode. Delete this if you didn't use buttons.
 
-    //If palette is larger than the population of thresholds[], start back at 0
-    //  This is why it's important you add a threshold to the array if you add a
-    //  palette, otherwise you might overflow "gradient" and get a choppy transition.
-    if (palette >= sizeof(thresholds) / 2) palette = 0;
+  //////////</Visual Cycling>
 
-    //This checks if it's actually a button press or just shuffle mode
-    //  The button is close to the microphone on my setup, so the sound of pushing it is
-    //  relatively loud to the sound detector. This causes the visual to think a loud noise
-    //  happened, so the delay simply allows the sound of the button to pass unabated.
-    if (!shuffle) delay(350);
-
-    maxVol = 15;  //Reset the max volume for a fresh experience.
-  }
-
-  if (!digitalRead(BUTTON_2)) {
-
-shuffleVisual:    //Another "go to" marker for shuffle mode
-
-    visual++;     //The purpose of this button: change the visual mode
-
-    gradient = 0; //Prevent overflow
-
-    //Some visuals change the brightness, so it's good to reset it to max brightness.
-    strand.setBrightness(255 * knob);
-    //                          ↑ This is one instance where the trimpot affects brightness.
-
-    //Resets "visual" if there are no more visuals to cycle through.
-    if (visual > VISUALS) visual = 0;
-    //This is why you should change "VISUALS" if you add a visual, or the program won't use it.
-
-    //Resets the positions of all dots to nonexistent (-2) if you cycle to the Traffic() visual.
-    if (visual == 1) memset(pos, -2, sizeof(pos));
-
-    //Gives Snake() and PaletteDance() visuals a random starting point if cycled to.
-    if (visual == 2 || visual == 3) {
-      randomSeed(analogRead(0));
-      dotPos = random(strand.numPixels());
-    }
-
-    //Like before, this delay is to prevent a button press from affecting "maxVol."
-    if (!shuffle) delay(350);
-
-    maxVol = 15; //Good to reset the maxVol for a fresh experience.
-  }
-
-  if (!digitalRead(BUTTON_3)) {
-
-    shuffle = !shuffle; //This button's purpose: toggle shuffle mode.
-
-    //This delay is to prevent the button from taking another reading while you're pressing it
-    delay(500);
-
-    //Reset these things for a fresh experience.
-    maxVol = 15;
-    avgBump = 0;
-  }
-
-  //////////</Button Readings>
-
-  //If shuffle mode is on, this triggers a shuffle every 30 seconds
-  //   It should be noted that "goto"'s are considered bad practice and can usually be avoided
-  //   I used them here to prevent redundant code, they simply bypass the button checks above.
-  if (shuffle && millis() / 1000.0 - shuffleTime > 30) {
-    shuffleTime = millis() / 1000.0;
-    
-    //Using the modulus of gradient is a cheap way to get a random outcome.
-    if (gradient % 2) goto shuffleVisual;
-    else goto shufflePallette;
-  }
-
-  //This is where "gradient" is reset to prevent overflow.
+  //This is where "gradient" is modulated to prevent overflow.
   if (gradient > thresholds[palette]) {
     gradient %= thresholds[palette] + 1;
-    
+
     //Everytime a palette gets completed is a good time to readjust "maxVol," just in case
-    //  the song gets quieter; we also don't want to lose brightness intensity permanently 
+    //  the song gets quieter; we also don't want to lose brightness intensity permanently
     //  because of one stray loud sound.
     maxVol = (maxVol + volume) / 2.0;
   }
@@ -479,18 +410,18 @@ void PaletteDance() {
     //  Lastly, it's all multiplied together to get the right color, and intensity, in the correct spot.
     //      "gradient" is also added to slowly shift the colors over time.
     for (int i = 0; i < strand.numPixels(); i++) {
-      
+
       float sinVal = abs(sin(
                            (i + dotPos) *
                            (PI / float(strand.numPixels() / 1.25) )
                          ));
-    sinVal *= sinVal;
-    sinVal *= volume/maxVol;
-    sinVal *= knob;
-      
+      sinVal *= sinVal;
+      sinVal *= volume / maxVol;
+      sinVal *= knob;
+
       unsigned int val = float(thresholds[palette] + 1)
-                                      //map takes a value between -LED_TOTAL and +LED_TOTAL and returns one between 0 and LED_TOTAL
-                         * (float(i + map(dotPos, -1 * (strand.numPixels() - 1), strand.numPixels() - 1, 0, strand.numPixels() - 1))                         
+                         //map takes a value between -LED_TOTAL and +LED_TOTAL and returns one between 0 and LED_TOTAL
+                         * (float(i + map(dotPos, -1 * (strand.numPixels() - 1), strand.numPixels() - 1, 0, strand.numPixels() - 1))
                             / float(strand.numPixels()))
                          + (gradient);
 
@@ -570,7 +501,7 @@ void Glitter() {
 
 
 //PAINTBALL
-//Recycles Glitter()'s random positioning; simulates "paintballs" of 
+//Recycles Glitter()'s random positioning; simulates "paintballs" of
 //  color splattering randomly on the strand and bleeding together.
 void Paintball() {
 
@@ -628,11 +559,121 @@ void Cycle() {
 
 //////////<Helper Functions>
 
+void CyclePalette() {
+
+  //IMPORTANT: Delete this whole if-block if you didn't use buttons//////////////////////////////////
+
+  //If a button is pushed, it sends a "false" reading
+  if (!digitalRead(BUTTON_1)) {
+
+    palette++;     //This is this button's purpose, to change the color palette.
+
+    //If palette is larger than the population of thresholds[], start back at 0
+    //  This is why it's important you add a threshold to the array if you add a
+    //  palette, or the program will cylce back to Rainbow() before reaching it.
+    if (palette >= sizeof(thresholds) / 2) palette = 0;
+
+    gradient %= thresholds[palette]; //Modulate gradient to prevent any overflow that may occur.
+
+    //The button is close to the microphone on my setup, so the sound of pushing it is
+    //  relatively loud to the sound detector. This causes the visual to think a loud noise
+    //  happened, so the delay simply allows the sound of the button to pass unabated.
+    delay(350);
+
+    maxVol = 15;  //Reset the max volume for a fresh experience.
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+  //If shuffle mode is on, and it's been 30 seconds since the last shuffle, and then a modulo
+  //  of gradient to get a random decision between palette or visualization shuffle
+  if (shuffle && millis() / 1000.0 - shuffleTime > 30 && gradient % 2) {
+
+    shuffleTime = millis() / 1000.0; //Record the time this shuffle happened.
+
+    palette++;
+    if (palette >= sizeof(thresholds) / 2) palette = 0;
+    gradient %= thresholds[palette];
+    maxVol = 15;  //Reset the max volume for a fresh experience.
+  }
+}
+
+
+void CycleVisual() {
+
+  //IMPORTANT: Delete this whole if-block if you didn't use buttons//////////////////////////////////
+  if (!digitalRead(BUTTON_2)) {
+
+    visual++;     //The purpose of this button: change the visual mode
+
+    gradient = 0; //Prevent overflow
+
+    //Some visuals change the brightness, so it's good to reset it to max brightness.
+    strand.setBrightness(255 * knob);
+    //                          ↑ This is one instance where the trimpot affects brightness.
+
+    //Resets "visual" if there are no more visuals to cycle through.
+    if (visual > VISUALS) visual = 0;
+    //This is why you should change "VISUALS" if you add a visual, or the program loop over it.
+
+    //Resets the positions of all dots to nonexistent (-2) if you cycle to the Traffic() visual.
+    if (visual == 1) memset(pos, -2, sizeof(pos));
+
+    //Gives Snake() and PaletteDance() visuals a random starting point if cycled to.
+    if (visual == 2 || visual == 3) {
+      randomSeed(analogRead(0));
+      dotPos = random(strand.numPixels());
+    }
+
+    //Like before, this delay is to prevent a button press from affecting "maxVol."
+    if (!shuffle) delay(350);
+
+    maxVol = 15; //Good to reset the maxVol for a fresh experience.
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+  //If shuffle mode is on, and it's been 30 seconds since the last shuffle, and then a modulo
+  //  of gradient WITH INVERTED LOGIC to get a random decision between what to shuffle.
+  //  This guarantees one and only one of these shuffles will occur.
+  if (shuffle && millis() / 1000.0 - shuffleTime > 30 && !(gradient % 2)) {
+
+    shuffleTime = millis() / 1000.0; //Record the time this shuffle happened.
+
+    visual++;
+    gradient = 0;
+    strand.setBrightness(255 * knob);
+    if (visual > VISUALS) visual = 0;
+    if (visual == 1) memset(pos, -2, sizeof(pos));
+    if (visual == 2 || visual == 3) {
+      randomSeed(analogRead(0));
+      dotPos = random(strand.numPixels());
+    }
+    maxVol = 15;
+  }
+}
+
+
+//IMPORTANT: Delete this function  if you didn't use buttons./////////////////////////////////////////
+void ToggleShuffle() {
+  if (!digitalRead(BUTTON_3)) {
+
+    shuffle = !shuffle; //This button's purpose: toggle shuffle mode.
+
+    //This delay is to prevent the button from taking another reading while you're pressing it
+    delay(500);
+
+    //Reset these things for a fresh experience.
+    maxVol = 15;
+    avgBump = 0;
+  }
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 //Fades lights by multiplying them by a value between 0 and 1 each pass of loop().
 void fade(float damper) {
-  
+
   //"damper" must be between 0 and 1, or else you'll end up brightening the lights or doing nothing.
-  if (damper >= 1) damper = 0.99;
 
   for (int i = 0; i < strand.numPixels(); i++) {
 
@@ -651,6 +692,8 @@ void fade(float damper) {
     strand.setPixelColor(i, strand.Color(colors[0] , colors[1], colors[2]));
   }
 }
+
+
 
 //"Bleeds" colors currently in the strand by averaging from a designated "Point"
 void bleed(uint8_t Point) {
@@ -690,11 +733,14 @@ void randomizeSeq() {
     int8_t p = random(sizeof(seq));
     randomSeed(micros());
     int8_t p2 = random(sizeof(seq));
-    while (p2 == p) p2 = random(sizeof(seq));
+    while (p2 == p) {
+      randomSeed(micros());
+      p2 = random(sizeof(seq));
+    }
     int8_t temp = seq[p2];
     seq[p2] = seq[p];
     seq[p] = temp;
-  }  
+  }
 }
 
 //As mentioned above, split() gives you one 8-bit color value
@@ -735,9 +781,9 @@ uint32_t Rainbow(unsigned int i) {
 
 uint32_t Sunset(unsigned int i) {
   if (i > 764) return Sunset(i % 765);
-  if (i > 509) return strand.Color(255, (i % 255)/2, 255 - (i % 255));   //violet -> orange
+  if (i > 509) return strand.Color(255, (i % 255) / 2, 255 - (i % 255)); //violet -> orange
   if (i > 255) return strand.Color(255, 0, (i % 255));                   //red -> violet
-  return strand.Color(255, 128 - (i % 255)/2, 0);                        //orange -> red
+  return strand.Color(255, 128 - (i % 255) / 2, 0);                      //orange -> red
 }
 
 uint32_t Ocean(unsigned int i) {
@@ -748,10 +794,10 @@ uint32_t Ocean(unsigned int i) {
 }
 
 uint32_t PinaColada(unsigned int i) {
-  if (i > 764) return PinaColada(i % 765);                                            
-  if (i > 509) return strand.Color(255 - (i % 255) / 2, (i % 255) / 2, (i % 255)/2);   //red -> half white
+  if (i > 764) return PinaColada(i % 765);
+  if (i > 509) return strand.Color(255 - (i % 255) / 2, (i % 255) / 2, (i % 255) / 2); //red -> half white
   if (i > 255) return strand.Color(255, 255 - (i % 255), 0);                           //yellow -> red
-  return strand.Color(128 + (i / 2), 128 + (i / 2), 128 - i/2);                        //half white -> yellow
+  return strand.Color(128 + (i / 2), 128 + (i / 2), 128 - i / 2);                      //half white -> yellow
 }
 
 uint32_t Sulfur(unsigned int i) {
@@ -763,7 +809,7 @@ uint32_t Sulfur(unsigned int i) {
 
 //NOTE: This is an example of a non-gradient palette: you will get straight red, white, or blue
 //      This works fine, but there is no gradient effect, this was merely included as an example.
-//      If you wish to include it, put it in the switch-case in ColorPalette() and add its 
+//      If you wish to include it, put it in the switch-case in ColorPalette() and add its
 //      threshold (764) to thresholds[] at the top.
 uint32_t USA(unsigned int i) {
   if (i > 764) return USA(i % 765);
