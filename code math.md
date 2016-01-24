@@ -1,6 +1,7 @@
-You'll find the sample code at the bottom of this section. The mathematics of it will be explained here for those of you who are curious or want clarification. Some of this is mentioned in the code itself, but without visual aid.
+The mathematics of the code are explained here for those of you who are curious or want clarification. Some of this is mentioned in the code itself, but without visual aid.
+---
 
-aving brightness correspond to loudness is an obvious enough feature, however its implementation was a bit of a design choice. Initially, I started with straight proportionality:
+Having brightness correspond to loudness is an obvious enough feature, however its implementation was a bit of a design choice. Initially, I started with straight proportionality:
 <center>![linear proportionality](http://i.imgur.com/bAM95uO.gif) &nbsp;&nbsp;&nbsp;&nbsp;in the code as: `(volume / maxVol) * 255`</center>
 
 I found this method to be a little underwhelming, so I tried a more exponential approach to make lower ratios darker and higher ratios brighter:
