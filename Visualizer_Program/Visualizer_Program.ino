@@ -1,4 +1,4 @@
-//Sparkfun Addressable RGB LED Sound and Music Visualizer Arduino Code by Michael Bartlett
+//Sparkfun Addressable RGB LED Sound and Music Visualizer Tutorial Arduino Code by Michael Bartlett
 
 //Libraries
 #include <Adafruit_NeoPixel.h>  //Library to simplify interacting with the LED strand
