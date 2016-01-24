@@ -748,10 +748,10 @@ uint32_t Ocean(unsigned int i) {
 }
 
 uint32_t PinaColada(unsigned int i) {
-  if (i > 764) return PinaColada(i % 765);
-  if (i > 509) return strand.Color(128, (i % 255) / 2, (i % 255) / 2); //red -> white
-  if (i > 255) return strand.Color(128, 128 - (i % 255) / 2, 0);       //yellow -> red
-  return strand.Color(128, 128, 128 - (i / 2));                        //white -> yellow
+  if (i > 764) return PinaColada(i % 765);                                            
+  if (i > 509) return strip.Color(255 - (i % 255) / 2, (i % 255) / 2, (i % 255)/2);   //red -> half white
+  if (i > 255) return strip.Color(255, 255 - (i % 255), 0);                           //yellow -> red
+  return strip.Color(128 + (i / 2), 128 + (i / 2), 128 - i/2);                        //half white -> yellow
 }
 
 uint32_t Sulfur(unsigned int i) {
