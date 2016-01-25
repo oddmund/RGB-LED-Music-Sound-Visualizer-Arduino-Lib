@@ -1,6 +1,27 @@
 ### The mathematics of the code are explained here for those of you who are curious or want clarification. Some of this is mentioned in the code itself, but without visual aid.
 
 ---
+### How Loud is Loud?
+This problem has a simple solution in this project, but it's still a problem nonetheless.
+
+Adjusting the visuals to correspond with volume level is the most straightforward and accurate way to make the two feel "synchronized." But there is an issue if we want the visualizer to be versatile.
+
+Not every sound environment will have the same range of loudness. Some will want to use it by their computer (like when I did most of my testing), others still will want to have it near their surround-sound system, others may even lug it to a concert. These are all radically different scenarios.
+
+The way to approach this is to adjust what the program thinks is the "loudest" sound. So initially you'd have the program keep track of what the loudest sound it's detected and proportionally adjust everything else accordingly. But there's one one issue with this model (that's easily fixed).
+
+Consider the following graph:
+
+**Volume Readings + Values of Loudest Noise Encountered<sub>(red)</sub>**
+![vols+mvol](http://i.imgur.com/9I54tbY.png)
+
+Notice how the song gets quieter near the end, and consequently no new maximum volumes are being detected. While this would appropriately adjust the visual-intensity for the remainder of this song, the following sounds may not fit into this range of loudness. Not to mention if you bump the visualizer or some other stray, excessively loud sound is detected then it would permanently diminish the intensity of the visuals until the program was reset.
+
+A simple solution to this: just lower the max volume periodically. Not once every cycle of course, but occasionally so the visualizer restricts its range to an appropriate level every so often.
+
+How I've implemented this in the program is to average the loudest volume level with the current volume level of a cycle where `gradient` is modulated. So if you were on `Rainbow()` mode, then `maxVol` will be averaged with whatever `volume` is at when `gradient` is greater than or equal to `1530` (`Rainbow()`'s loop threshold). This is an arbitrary enough check that occurs periodically enough, and it adjusted the `maxVol` appropriately enough (i.e. not setting it to 0, but also allowing it to slowly reduce over time if the sound environment has gotten quieter.)
+
+---
 ### Loudness and Brightness
 
 Having brightness correspond to volume is an obvious enough feature, however its implementation was a bit of a design choice. Initially, I started with straight proportionality:
@@ -35,7 +56,7 @@ _Interestingly&mdash;although useless&mdash;if the sequence is in numerical orde
 
 &nbsp;
 
-Rarely will you get an ordered sequence from the sound detector, and that's where the importance of this model becomes evident:![seq arb](http://i.imgur.com/3sMsmzr.gif)
+Rarely will you get an ordered sequence from the sound detector, and that's where the importance of this model becomes evident:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![seq arb](http://i.imgur.com/3sMsmzr.gif)
 
 In this sequence, there is an trend toward lower inputs (i.e. volume readings, so in the program this would reflect a decreasing noise level). The sequenced average properly reflects this trend, whereas if we did a proper mathematical average it would still read as 5. The difference here is a little too nuanced to be of importance, so I'll demonstrate with some actual data:
 
