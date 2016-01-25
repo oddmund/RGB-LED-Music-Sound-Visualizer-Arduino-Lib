@@ -42,13 +42,13 @@ In this sequence, there is an trend toward lower inputs (i.e. volume readings, s
 <table>
 <tr><td> All values were read out simultaneously during the same song. Some quiet was left at the end to demonstrate the difference between true and sequenced averages.</td></tr>
 <tr><th> Volume Readings, Straight from Sound Detector </th></tr>
-<tr><td><img src="http://i.imgur.com/SOczWME.png" alt="vols"></td></tr>
+<tr><td><img src="http://i.imgur.com/PXKdeAa.png" alt="vols"></td></tr>
 <tr><th> Volume Readings + Sequenced Average of Volumes<sub>(orange)</sub> </th></tr>
-<tr><td><img src="http://i.imgur.com/W7Ae3GM.png" alt="vol+sa"></td></tr>
+<tr><td><img src="http://i.imgur.com/njBWWgb.png" alt="vol+sa"></td></tr>
 <tr><th> Volume Readings + True Average of Volumes<sub>(green)</sub> </th></tr>
-<tr><td><img src="http://i.imgur.com/6ZqfvHw.png" alt="vol+av"></td></tr>
+<tr><td><img src="http://i.imgur.com/ltuQTL4.png" alt="vol+av"></td></tr>
 <tr><th> Sequenced Average of Volumes<sub>(orange)</sub> + True Average of Volumes<sub>(green)</sub> </th></tr>
-<tr><td><img src="http://i.imgur.com/tlKwwFt.png" alt="av+sa"></td></tr>
+<tr><td><img src="http://i.imgur.com/68cjnTl.png" alt="av+sa"></td></tr>
 </table>
 
 It's pretty evident which method is more responsive to the sound level. The most notable failure of the true average is when the song ends and it's silent. If we relied on the true average to to tell us what was going on in the environment, we'd still think it was plenty noisy, whereas the sequenced average reflects the silence almost immediately&mdash;which is the point.
