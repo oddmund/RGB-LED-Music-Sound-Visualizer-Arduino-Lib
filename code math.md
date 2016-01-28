@@ -42,7 +42,7 @@ This was used because it is a balance between the linear and exponential approac
 I encourage you to to try all methods to see which one you find to be the most pleasing. One other alternative is to raise the volume ratio to the power of 1.5 to get a slightly more linear output.
 
 ---
-### "Averaging"
+### "Average"
 This program uses what is called "sequenced averages." The difference between them and a regular average is that rather than averaging all available values at once, the averages between a current value and the last computed average are computed in a sequence (this sequence influences the final result). 
 
 **Examples:**
