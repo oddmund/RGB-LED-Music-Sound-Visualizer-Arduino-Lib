@@ -20,7 +20,7 @@ Notice how the song gets quieter near the end, and consequently no new maximum v
 
 A simple solution to this: just lower the max volume periodically. Not once every cycle of course, but occasionally so the visualizer restricts its range to an appropriate level every so often.
 
-How I've implemented this in the program is to average the loudest volume level with the current volume level of a cycle where `gradient` is modulated. So if you were on `Rainbow()` mode, then `maxVol` will be averaged with whatever `volume` is at when `gradient` is greater than or equal to `1530` (`Rainbow()`'s loop threshold). This is an arbitrary enough check that occurs periodically enough, and it adjusted the `maxVol` appropriately enough (i.e. not setting it to 0, but also allowing it to slowly reduce over time if the sound environment has gotten quieter.)
+How I've implemented this in the program is to average the loudest volume level with the current volume level of a cycle where `gradient` is modulated. So if you were on `Rainbow()` mode, then `maxVol` will be averaged with whatever `volume` is at when `gradient` is greater than or equal to `1530` (`Rainbow()`'s loop threshold). This is an arbitrary enough check that occurs periodically, and it adjusts the `maxVol` subtley (i.e. not setting it to 0, but also allowing it to slowly reduce over time if the sound environment has gotten quieter.)
 
 ---
 ### Loudness and Brightness
