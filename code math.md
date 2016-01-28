@@ -26,6 +26,7 @@ How I've implemented this in the program is to average the loudest volume level 
 ### Loudness and Brightness
 
 Having brightness correspond to volume is an obvious enough feature, however its implementation was a bit of a design choice. Initially, I started with straight proportionality:
+
  ![linear proportionality](http://i.imgur.com/bAM95uO.gif) &nbsp;&nbsp;&nbsp;&nbsp;in the code as: `(volume / maxVol) * 255` 
 
 I found this method to be a little underwhelming, so I tried a more exponential approach to make lower ratios darker and higher ratios brighter:
