@@ -7,7 +7,7 @@ This problem has a simple solution in this project, but it's still a problem non
 
 Adjusting the visuals to correspond with volume level is the most straightforward and accurate way to make the two feel "synchronized." But there is an issue if we want the visualizer to be versatile.
 
-Not every sound environment will have the same range of loudness. Some will want to use it by their computer (like when I did most of my testing), others still will want to have it near their surround-sound system, others may even lug it to a concert. These are all radically different scenarios.
+Not every sound environment will have the same range of loudness. Some will want to use it by their computer (like when I did most of my testing), some will want to have it near their surround-sound system, others may even lug it to a concert. These are all radically different scenarios.
 
 The way to approach this is to adjust what the program thinks is the "loudest" sound. So initially you'd have the program keep track of what the loudest sound it's detected and proportionally adjust everything else accordingly. But there's one one issue with this model (that's easily fixed).
 
