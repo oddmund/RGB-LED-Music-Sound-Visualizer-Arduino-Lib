@@ -7,7 +7,7 @@
 #endif                   //More info: http://www.nongnu.org/avr-libc/user-manual/group__avr__power.htlm
 
 //Constants (change these as necessary)
-#define LED_PIN   A5  //Pin for the pixel strand. Does not have to be analog.
+#define LED_PIN   A5  //Pin for the pixel strand. Can be analog or digital.
 #define LED_TOTAL 36  //Change this to the number of LEDs in your strand.
 #define LED_HALF  LED_TOTAL/2
 #define VISUALS   5   //Change this accordingly if you add/remove a visual in the switch-case in Visualize()
@@ -32,7 +32,7 @@ uint16_t gradient = 0; //Used to iterate and loop through each color palette gra
 //  keep "gradient" from overflowing, the color functions themselves can take any positive value. For example, the
 //  largest value Rainbow() takes before looping is 1529, so "gradient" should reset after 1529, as listed.
 //     Make sure you add/remove values accordingly if you add/remove a color function in the switch-case in ColorPalette().
-uint16_t thresholds[] = {1529, 764, 764, 764, 764};
+uint16_t thresholds[] = {1529, 764, 764, 764, 764, 1020};
 
 uint8_t palette = 0;  //Holds the current color palette.
 uint8_t visual = 0;   //Holds the current visual being displayed.
@@ -73,7 +73,7 @@ float timeBump = 0; //Holds the time (in runtime seconds) the last "bump" occurr
 float avgTime = 0;  //Holds the "average" amount of time between each "bump" (used for pacing the dot's movement).
 
 //For Glitter & Paintball visual
-uint8_t seq[LED_TOTAL]; //Holds a randomized sequence of all possible LED positions.
+//uint8_t seq[LED_TOTAL]; //Holds a randomized sequence of all possible LED positions.
 int8_t randPos = 0;     //Used to return a random LED position. Not itself random, simply iterates through seq[].
 
 //////////</Globals>
@@ -93,31 +93,20 @@ void setup() {    //Like it's named, this gets ran before any other function.
 
   strand.begin(); //Initialize the LED strand object.
   strand.show();  //Show a blank strand, just to get the LED's ready for use.
-
-  //Initialize seq[] with ordered list of all positions in the strand.
-  for (int i = 0; i < strand.numPixels(); i++) seq[i] = i;
-
-  //Swaps every other value in seq[] for psuedo-random behavior
-  for (int i = 0; i < strand.numPixels(); i += 2) {
-    int8_t temp = seq[sizeof(seq) - i];
-    seq[sizeof(seq) - i] = seq[i];
-    seq[i] = temp;
-  }
-
-  //Randomly swaps values in seq[] to guarantee all positions are visited, but in a random order.
-  randomizeSeq();
 }
 
 
 void loop() {  //This is where the magic happens. This loop produces each frame of the visual.
+
   volume = analogRead(AUDIO_PIN);       //Record the volume level from the sound detector
   knob = analogRead(KNOB_PIN) / 1023.0; //Record how far the trimpot is twisted
-  avgVol = (avgVol + volume) / 2.0;     //Take our "average" of volumes.
 
   //Sets a threshold for volume.
   //  In practice I've found noise can get up to 15, so if it's lower, the visual thinks it's silent.
   //  Also if the volume is less than average volume / 2 (essentially an average with 0), it's considered silent.
   if (volume < avgVol / 2.0 || volume < 15) volume = 0;
+
+  else avgVol = (avgVol + volume) / 2.0; //If non-zeo, take an "average" of volumes.
 
   //If the current volume is larger than the loudest value recorded, overwrite
   if (volume > maxVol) maxVol = volume;
@@ -215,6 +204,7 @@ uint32_t ColorPalette(float num) {
     case 2: return (num < 0) ? Ocean(gradient) : Ocean(num);
     case 3: return (num < 0) ? PinaColada(gradient) : PinaColada(num);
     case 4: return (num < 0) ? Sulfur(gradient) : Sulfur(num);
+    case 5: return (num < 0) ? NoGreen(gradient) : NoGreen(num);
     default: return Rainbow(gradient);
   }
 }
@@ -478,24 +468,20 @@ void Glitter() {
   //Create sparkles every bump
   if (bump) {
 
-    //The calls to seq[] here return a random position, so the sparkles appear random.
-    //   The sparkles are also adjusted to the volume, much like all the other visuals.
-    strand.setPixelColor(seq[randPos], strand.Color(
+    //Random generator needs a seed, and micros() gives a large range of values.
+    //  micros() is the amount of microseconds since the program started running.
+    randomSeed(micros());
+
+    //Pick a random spot on the strand.
+    randPos = random(strand.numPixels() - 1);
+
+    //Draw  sparkle at the random position, with appropriate brightness.
+    strand.setPixelColor(randPos, strand.Color(
                            255.0 * pow(volume / maxVol, 2.0) * knob,
                            255.0 * pow(volume / maxVol, 2.0) * knob,
                            255.0 * pow(volume / maxVol, 2.0) * knob
                          ));
-
-    randPos++; //Iterate to next random position in seq[]
-
-    //If randPos goes out of bounds of seq[], that means it's time to reshuffle seq[]
-    //  So randPos is set to 0, and randomizeSeq() is called again.
-    if (randPos >= sizeof(seq)) {
-      randPos = 0;
-      randomizeSeq();
-    }
   }
-
   strand.show(); //Show the lights.
 }
 
@@ -505,11 +491,11 @@ void Glitter() {
 //  color splattering randomly on the strand and bleeding together.
 void Paintball() {
 
-  //Bleeds colors together. Operates similarly to fade. For more info, see its definition below
-  bleed(seq[randPos]);
-
   //If it's been twice the average time for a "bump" since the last "bump," start fading.
   if ((millis() / 1000.0) - timeBump > avgTime * 2.0) fade(0.99);
+
+  //Bleeds colors together. Operates similarly to fade. For more info, see its definition below
+  bleed(randPos);
 
   //Create a new paintball if there's a bump (like the sparkles in Glitter())
   if (bump) {
@@ -518,22 +504,26 @@ void Paintball() {
     //  micros() is the amount of microseconds since the program started running.
     randomSeed(micros());
 
+    //Pick a random spot on the strip. Random was already reseeded above, so no real need to do it again.
+    randPos = random(strand.numPixels() - 1);
+
     //Grab a random color from our palette.
     uint32_t col = ColorPalette(random(thresholds[palette]));
 
-    //Randomly splatters "paintball" on the strand with appropriate brightness
-    strand.setPixelColor(seq[randPos], strand.Color(
-                           split(col, 0) * pow(volume / maxVol, 2.0) * knob,
-                           split(col, 1) * pow(volume / maxVol, 2.0) * knob,
-                           split(col, 2) * pow(volume / maxVol, 2.0) * knob
-                         ));
-    randPos++; //Iterates to next random sequence, like Glitter()
+    //Array to hold final RGB values
+    uint8_t colors[3];
 
-    //Re-randomizes seq[] if it's been fully traversed.
-    if (randPos >= sizeof(seq)) {
-      randPos = 0;
-      randomizeSeq();
-    }
+    //Relates brightness of the color to the relative volume and potentiometer value.
+    for (int i = 0; i < 3; i++) colors[i] = split(col, i) * pow(volume / maxVol, 2.0) * knob;
+
+    //Splatters the "paintball" on the random position.
+    strand.setPixelColor(randPos, strand.Color(colors[0], colors[1], colors[2]));
+
+    //This next part places a less bright version of the same color next to the left and right of the
+    //  original position, so that the bleed effect is stronger and the colors are more vibrant.
+    for (int i = 0; i < 3; i++) colors[i] *= .8;
+    strand.setPixelColor(randPos - 1, strand.Color(colors[0], colors[1], colors[2]));
+    strand.setPixelColor(randPos + 1, strand.Color(colors[0], colors[1], colors[2]));
   }
   strand.show(); //Show lights.
 }
@@ -721,27 +711,7 @@ void bleed(uint8_t Point) {
   }
 }
 
-//Since seq[] started off as the numerically-ordered sequence of all position in the strand,
-//  this method ensures that every pixel is visited once and only once with little computational effort.
-//  If its sequence is exhausted, seq[] can simply be reshuffled without re-ordering it.
-void randomizeSeq() {
 
-  //Randomly picks spots to swap in the array
-  //  It'll loop once for every pixel in your strand
-  for (int i = 0; i < strand.numPixels() * 2; i++) {
-    randomSeed(micros());
-    int8_t p = random(sizeof(seq));
-    randomSeed(micros());
-    int8_t p2 = random(sizeof(seq));
-    while (p2 == p) {
-      randomSeed(micros());
-      p2 = random(sizeof(seq));
-    }
-    int8_t temp = seq[p2];
-    seq[p2] = seq[p];
-    seq[p] = temp;
-  }
-}
 
 //As mentioned above, split() gives you one 8-bit color value
 //from the composite 32-bit value that the NeoPixel deals with.
@@ -806,6 +776,15 @@ uint32_t Sulfur(unsigned int i) {
   if (i > 255) return strand.Color(0, 255, i % 255);                 //green -> aqua
   return strand.Color(255 - i, 255, 0);                              //yellow -> green
 }
+
+uint32_t NoGreen(unsigned int i) {
+  if (i > 1019) return NoGreen(i % 1020);
+  if (i > 764) return strand.Color(255, 0, 255 - (i % 255));                    //violet -> red
+  if (i > 509) return strand.Color((i % 255), 0, 255);                          //blue -> violet
+  if (i > 255) return strand.Color(255 - (i % 255), 255 - (i % 255), i % 255);  //yellow -> blue
+  return strand.Color(255, i, 0);                                               //red -> yellow
+}
+
 
 //NOTE: This is an example of a non-gradient palette: you will get straight red, white, or blue
 //      This works fine, but there is no gradient effect, this was merely included as an example.
