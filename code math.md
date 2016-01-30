@@ -1,5 +1,4 @@
-#### The mathematics of the code are explained here for those of you who are curious or want clarification. Some of this is mentioned in the code itself, but without visual aid.
-&nbsp;
+### The mathematics of the code are explained here for those of you who are curious or want clarification. Some of this is mentioned in the code itself, but without visual aid.
 
 ---
 ### How Loud is Loud?
@@ -7,7 +6,7 @@ This problem has a simple solution in this project, but it's still a problem non
 
 Adjusting the visuals to correspond with volume level is the most straightforward and accurate way to make the two feel "synchronized." But there is an issue if we want the visualizer to be versatile.
 
-Not every sound environment will have the same range of loudness. Some will want to use it by their computer (like when I did most of my testing), some will want to have it near their surround-sound system, others may even lug it to a concert. These are all radically different scenarios.
+Not every sound environment will have the same range of loudness. Some will want to use it by their computer (like when I did most of my testing), others still will want to have it near their surround-sound system, others may even lug it to a concert. These are all radically different scenarios.
 
 The way to approach this is to adjust what the program thinks is the "loudest" sound. So initially you'd have the program keep track of what the loudest sound it's detected and proportionally adjust everything else accordingly. But there's one one issue with this model (that's easily fixed).
 
@@ -20,13 +19,12 @@ Notice how the song gets quieter near the end, and consequently no new maximum v
 
 A simple solution to this: just lower the max volume periodically. Not once every cycle of course, but occasionally so the visualizer restricts its range to an appropriate level every so often.
 
-How I've implemented this in the program is to average the loudest volume level with the current volume level of a cycle where `gradient` is modulated. So if you were on `Rainbow()` mode, then `maxVol` will be averaged with whatever `volume` is at when `gradient` is greater than or equal to `1530` (`Rainbow()`'s loop threshold). This is an arbitrary enough check that occurs periodically, and it adjusts the `maxVol` subtley (i.e. not setting it to 0, but also allowing it to slowly reduce over time if the sound environment has gotten quieter.)
+How I've implemented this in the program is to average the loudest volume level with the current volume level of a cycle where `gradient` is modulated. So if you were on `Rainbow()` mode, then `maxVol` will be averaged with whatever `volume` is at when `gradient` is greater than or equal to `1530` (`Rainbow()`'s loop threshold). This is an decently arbitrary check that occurs periodically, and it adjusts the `maxVol` appropriately enough (i.e. not just setting it to 0, but also allowing it to slowly reduce over time if the sound environment has gotten quieter.)
 
 ---
 ### Loudness and Brightness
 
 Having brightness correspond to volume is an obvious enough feature, however its implementation was a bit of a design choice. Initially, I started with straight proportionality:
-
  ![linear proportionality](http://i.imgur.com/bAM95uO.gif) &nbsp;&nbsp;&nbsp;&nbsp;in the code as: `(volume / maxVol) * 255` 
 
 I found this method to be a little underwhelming, so I tried a more exponential approach to make lower ratios darker and higher ratios brighter:
@@ -44,7 +42,7 @@ This was used because it is a balance between the linear and exponential approac
 I encourage you to to try all methods to see which one you find to be the most pleasing. One other alternative is to raise the volume ratio to the power of 1.5 to get a slightly more linear output.
 
 ---
-### "Average"
+### "Averaging"
 This program uses what is called "sequenced averages." The difference between them and a regular average is that rather than averaging all available values at once, the averages between a current value and the last computed average are computed in a sequence (this sequence influences the final result). 
 
 **Examples:**
