@@ -32,7 +32,7 @@ uint16_t gradient = 0; //Used to iterate and loop through each color palette gra
 //  keep "gradient" from overflowing, the color functions themselves can take any positive value. For example, the
 //  largest value Rainbow() takes before looping is 1529, so "gradient" should reset after 1529, as listed.
 //     Make sure you add/remove values accordingly if you add/remove a color function in the switch-case in ColorPalette().
-uint16_t thresholds[] = {1529, 764, 764, 764, 764, 1020};
+uint16_t thresholds[] = {1529, 1019, 764, 764, 764, 1274};
 
 uint8_t palette = 0;  //Holds the current color palette.
 uint8_t visual = 0;   //Holds the current visual being displayed.
@@ -68,13 +68,9 @@ uint8_t rgb[LED_TOTAL][3] = {0};  //Stores each dot's specific RGB values.
 
 //For Snake() visual
 bool left = false;  //Determines the direction of iteration. Recycled in PaletteDance()
-int8_t dotPos = 0;  //Holds which LED in the strand the dot is positioned at. Recycled in PaletteDance()
+int8_t dotPos = 0;  //Holds which LED in the strand the dot is positioned at. Recycled in most other visuals.
 float timeBump = 0; //Holds the time (in runtime seconds) the last "bump" occurred.
 float avgTime = 0;  //Holds the "average" amount of time between each "bump" (used for pacing the dot's movement).
-
-//For Glitter & Paintball visual
-//uint8_t seq[LED_TOTAL]; //Holds a randomized sequence of all possible LED positions.
-int8_t randPos = 0;     //Used to return a random LED position. Not itself random, simply iterates through seq[].
 
 //////////</Globals>
 
@@ -162,27 +158,13 @@ void loop() {  //This is where the magic happens. This loop produces each frame 
 //This function calls the appropriate visualization based on the value of "visual"
 void Visualize() {
   switch (visual) {
-    case 0:
-      Pulse();
-      break;
-    case 1:
-      Traffic();
-      break;
-    case 2:
-      Snake();
-      break;
-    case 3:
-      PaletteDance();
-      break;
-    case 4:
-      Glitter();
-      break;
-    case 5:
-      Paintball();
-      break;
-    default:
-      Pulse();
-      break;
+    case 0: return Pulse();
+    case 1: return Traffic();
+    case 2: return Snake();
+    case 3: return PaletteDance();
+    case 4: return Glitter();
+    case 5: return Paintball();
+    default: return Pulse();
   }
 }
 
@@ -259,6 +241,7 @@ void Pulse() {
                              split(col, 2) * pow(damp, 2.0) * knob
                            ));
     }
+
     //Sets the max brightness of all LEDs. If it's loud, it's brighter.
     //  "knob" was not used here because it occasionally caused minor errors in color display.
     strand.setBrightness(255.0 * pow(volume / maxVol, 2));
@@ -473,15 +456,16 @@ void Glitter() {
     randomSeed(micros());
 
     //Pick a random spot on the strand.
-    randPos = random(strand.numPixels() - 1);
+    dotPos = random(strand.numPixels() - 1);
 
     //Draw  sparkle at the random position, with appropriate brightness.
-    strand.setPixelColor(randPos, strand.Color(
+    strand.setPixelColor(dotPos, strand.Color(
                            255.0 * pow(volume / maxVol, 2.0) * knob,
                            255.0 * pow(volume / maxVol, 2.0) * knob,
                            255.0 * pow(volume / maxVol, 2.0) * knob
                          ));
   }
+  bleed(dotPos);
   strand.show(); //Show the lights.
 }
 
@@ -495,7 +479,7 @@ void Paintball() {
   if ((millis() / 1000.0) - timeBump > avgTime * 2.0) fade(0.99);
 
   //Bleeds colors together. Operates similarly to fade. For more info, see its definition below
-  bleed(randPos);
+  bleed(dotPos);
 
   //Create a new paintball if there's a bump (like the sparkles in Glitter())
   if (bump) {
@@ -505,7 +489,7 @@ void Paintball() {
     randomSeed(micros());
 
     //Pick a random spot on the strip. Random was already reseeded above, so no real need to do it again.
-    randPos = random(strand.numPixels() - 1);
+    dotPos = random(strand.numPixels() - 1);
 
     //Grab a random color from our palette.
     uint32_t col = ColorPalette(random(thresholds[palette]));
@@ -517,13 +501,13 @@ void Paintball() {
     for (int i = 0; i < 3; i++) colors[i] = split(col, i) * pow(volume / maxVol, 2.0) * knob;
 
     //Splatters the "paintball" on the random position.
-    strand.setPixelColor(randPos, strand.Color(colors[0], colors[1], colors[2]));
+    strand.setPixelColor(dotPos, strand.Color(colors[0], colors[1], colors[2]));
 
     //This next part places a less bright version of the same color next to the left and right of the
     //  original position, so that the bleed effect is stronger and the colors are more vibrant.
     for (int i = 0; i < 3; i++) colors[i] *= .8;
-    strand.setPixelColor(randPos - 1, strand.Color(colors[0], colors[1], colors[2]));
-    strand.setPixelColor(randPos + 1, strand.Color(colors[0], colors[1], colors[2]));
+    strand.setPixelColor(dotPos - 1, strand.Color(colors[0], colors[1], colors[2]));
+    strand.setPixelColor(dotPos + 1, strand.Color(colors[0], colors[1], colors[2]));
   }
   strand.show(); //Show lights.
 }
@@ -570,7 +554,7 @@ void CyclePalette() {
     //  happened, so the delay simply allows the sound of the button to pass unabated.
     delay(350);
 
-    maxVol = 15;  //Reset the max volume for a fresh experience.
+    maxVol = avgVol;  //Set max volume to average for a fresh experience.
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -583,7 +567,7 @@ void CyclePalette() {
     palette++;
     if (palette >= sizeof(thresholds) / 2) palette = 0;
     gradient %= thresholds[palette];
-    maxVol = 15;  //Reset the max volume for a fresh experience.
+    maxVol = avgVol;  //Set the max volume to average for a fresh experience.
   }
 }
 
@@ -617,7 +601,7 @@ void CycleVisual() {
     //Like before, this delay is to prevent a button press from affecting "maxVol."
     delay(350);
 
-    maxVol = 15; //Good to reset the maxVol for a fresh experience.
+    maxVol = avgVol; //Set max volume to average for a fresh experience
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -638,7 +622,7 @@ void CycleVisual() {
       randomSeed(analogRead(0));
       dotPos = random(strand.numPixels());
     }
-    maxVol = 15;
+    maxVol = avgVol;
   }
 }
 
@@ -653,7 +637,7 @@ void ToggleShuffle() {
     delay(500);
 
     //Reset these things for a fresh experience.
-    maxVol = 15;
+    maxVol = avgVol;
     avgBump = 0;
   }
 }
@@ -750,10 +734,11 @@ uint32_t Rainbow(unsigned int i) {
 }
 
 uint32_t Sunset(unsigned int i) {
-  if (i > 764) return Sunset(i % 765);
-  if (i > 509) return strand.Color(255, (i % 255) / 2, 255 - (i % 255)); //violet -> orange
-  if (i > 255) return strand.Color(255, 0, (i % 255));                   //red -> violet
-  return strand.Color(255, 128 - (i % 255) / 2, 0);                      //orange -> red
+  if (i > 1019) return Sunset(i % 1020);
+  if (i > 764) return strand.Color((i % 255), 0, 255 - (i % 255)); //blue -> red
+  if (i > 509) return strand.Color(255 - (i % 255), 0, 255);       //purple -> blue
+  if (i > 255) return strand.Color(255, 128 - (i % 255) / 2, (i % 255)); //orange -> purple
+  return strand.Color(255, i / 2, 0);                              //red -> orange
 }
 
 uint32_t Ocean(unsigned int i) {
@@ -778,13 +763,13 @@ uint32_t Sulfur(unsigned int i) {
 }
 
 uint32_t NoGreen(unsigned int i) {
-  if (i > 1019) return NoGreen(i % 1020);
-  if (i > 764) return strand.Color(255, 0, 255 - (i % 255));                    //violet -> red
-  if (i > 509) return strand.Color((i % 255), 0, 255);                          //blue -> violet
-  if (i > 255) return strand.Color(255 - (i % 255), 255 - (i % 255), i % 255);  //yellow -> blue
-  return strand.Color(255, i, 0);                                               //red -> yellow
+  if (i > 1274) return NoGreen(i % 1275);
+  if (i > 1019) return strand.Color(255, 0, 255 - (i % 255));         //violet -> red
+  if (i > 764) return strand.Color((i % 255), 0, 255);                //blue -> violet
+  if (i > 509) return strand.Color(0, 255 - (i % 255), 255);          //aqua -> blue
+  if (i > 255) return strand.Color(255 - (i % 255), 255, i % 255);    //yellow -> aqua
+  return strand.Color(255, i, 0);                                     //red -> yellow
 }
-
 
 //NOTE: This is an example of a non-gradient palette: you will get straight red, white, or blue
 //      This works fine, but there is no gradient effect, this was merely included as an example.
