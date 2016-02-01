@@ -10,7 +10,7 @@
 #define LED_PIN   A5  //Pin for the pixel strand. Can be analog or digital.
 #define LED_TOTAL 36  //Change this to the number of LEDs in your strand.
 #define LED_HALF  LED_TOTAL/2
-#define VISUALS   5   //Change this accordingly if you add/remove a visual in the switch-case in Visualize()
+#define VISUALS   6   //Change this accordingly if you add/remove a visual in the switch-case in Visualize()
 
 #define AUDIO_PIN A0  //Pin for the envelope of the sound detector
 #define KNOB_PIN  A1  //Pin for the trimpot 10K
@@ -107,18 +107,14 @@ void loop() {  //This is where the magic happens. This loop produces each frame 
   //If the current volume is larger than the loudest value recorded, overwrite
   if (volume > maxVol) maxVol = volume;
 
-
-  //////////<Visual Cycling>
-
   //Check the Cycle* functions for specific instructions if you didn't include buttons in your design.
-
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
   CyclePalette();  //Changes palette for shuffle mode or button press.
 
   CycleVisual();   //Changes visualization for shuffle mode or button press.
 
   ToggleShuffle(); //Toggles shuffle mode. Delete this if you didn't use buttons.
-
-  //////////</Visual Cycling>
+  ////////////////////////////////////////////////////////////////////////////////////////////////////  
 
   //This is where "gradient" is modulated to prevent overflow.
   if (gradient > thresholds[palette]) {
@@ -133,8 +129,9 @@ void loop() {  //This is where the magic happens. This loop produces each frame 
   //If there is a decent change in volume since the last pass, average it into "avgBump"
   if (volume - last > avgVol - last && avgVol - last > 0) avgBump = (avgBump + (volume - last)) / 2.0;
 
-  //if there is a notable change in volume, trigger a "bump"
-  bump = (volume - last) > avgBump;
+  //If there is a notable change in volume, trigger a "bump"
+  //  avgbump is lowered just a little for comparing to make the visual slightly more sensitive to a beat.
+  bump = (volume - last) > avgBump * .9;
 
   //If a "bump" is triggered, average the time between bumps
   if (bump) {
@@ -142,13 +139,13 @@ void loop() {  //This is where the magic happens. This loop produces each frame 
     timeBump = millis() / 1000.0;
   }
 
-  Visualize();   //Calls the visual to be displayed with the globals as they are.
+  Visualize();   //Calls the appropriate visualization to be displayed with the globals as they are.
 
   gradient++;    //Increments gradient
 
   last = volume; //Records current volume for next pass
 
-  delay(30);   //Paces visuals so they aren't too fast to be enjoyable
+  delay(30);     //Paces visuals so they aren't too fast to be enjoyable
 }
 //////////</Standard Functions>
 
@@ -159,11 +156,12 @@ void loop() {  //This is where the magic happens. This loop produces each frame 
 void Visualize() {
   switch (visual) {
     case 0: return Pulse();
-    case 1: return Traffic();
-    case 2: return Snake();
-    case 3: return PaletteDance();
-    case 4: return Glitter();
-    case 5: return Paintball();
+    case 1: return PalettePulse();
+    case 2: return Traffic();
+    case 3: return Snake();
+    case 4: return PaletteDance();
+    case 5: return Glitter();
+    case 6: return Paintball();
     default: return Pulse();
   }
 }
@@ -216,7 +214,7 @@ void Pulse() {
     uint32_t col = ColorPalette(-1); //Our retrieved 32-bit color
 
     //These variables determine where to start and end the pulse since it starts from the middle of the strand.
-    //  The quantities are stored in variables so they only have to be computed once.
+    //  The quantities are stored in variables so they only have to be computed once (plus we use them in the loop).
     int start = LED_HALF - (LED_HALF * (volume / maxVol));
     int finish = LED_HALF + (LED_HALF * (volume / maxVol)) + strand.numPixels() % 2;
     //Listed above, LED_HALF is simply half the number of LEDs on your strand. ↑ this part adjusts for an odd quantity.
@@ -225,29 +223,65 @@ void Pulse() {
 
       //"damp" creates the fade effect of being dimmer the farther the pixel is from the center of the strand.
       //  It returns a value between 0 and 1 that peaks at 1 at the center of the strand and 0 at the ends.
-      float damp = float(
-                     ((finish - start) / 2.0) -
-                     abs((i - start) - ((finish - start) / 2.0))
-                   )
-                   / float((finish - start) / 2.0);
+      float damp = sin((i - start) * PI / float(finish - start));
 
-      //Sets the each pixel on the strand to the appropriate color and intensity
-      //  strand.Color() takes 3 values between 0 & 255, and returns a 32-bit integer.
-      //  Notice "knob" affecting the brightness, as in the rest of the visuals.
-      //  Also notice split() being used to get the red, green, and blue values.
-      strand.setPixelColor(i, strand.Color(
-                             split(col, 0) * pow(damp, 2.0) * knob,
-                             split(col, 1) * pow(damp, 2.0) * knob,
-                             split(col, 2) * pow(damp, 2.0) * knob
-                           ));
+      //Squaring damp creates more distinctive brightness.
+      damp = pow(damp, 2.0);
+
+      //Fetch the color at the current pixel so we can see if it's dim enough to overwrite.
+      uint32_t col2 = strand.getPixelColor(i);
+
+      //Takes advantage of one for loop to do the following:
+      // Appropriatley adjust the brightness of this pixel using location, volume, and "knob"
+      // Take the average RGB value of the intended color and the existing color, for comparison
+      uint8_t colors[3];
+      float avgCol = 0, avgCol2 = 0;
+      for (int k = 0; k < 3; k++) {
+        colors[k] = split(col, k) * damp * knob * pow(volume / maxVol, 2);
+        avgCol += colors[k];
+        avgCol2 += split(col2, k);
+      }
+      avgCol /= 3.0, avgCol2 /= 3.0;
+
+      //Compare the average colors as "brightness". Only overwrite dim colors so the fade effect is more apparent.
+      if (avgCol > avgCol2) strand.setPixelColor(i, strand.Color(colors[0], colors[1], colors[2]));
     }
-
-    //Sets the max brightness of all LEDs. If it's loud, it's brighter.
-    //  "knob" was not used here because it occasionally caused minor errors in color display.
-    strand.setBrightness(255.0 * pow(volume / maxVol, 2));
   }
-
   //This command actually shows the lights. If you make a new visualization, don't forget this!
+  strand.show();
+}
+
+
+//PALETTEPULSE
+//Same as Pulse(), but colored the entire pallet instead of one solid color
+void PalettePulse() {
+  fade(0.75);
+  if (bump) gradient += thresholds[palette] / 24;
+  if (volume > 0) {
+    int start = LED_HALF - (LED_HALF * (volume / maxVol));
+    int finish = LED_HALF + (LED_HALF * (volume / maxVol)) + strand.numPixels() % 2;
+    for (int i = start; i < finish; i++) {
+      float damp = sin((i - start) * PI / float(finish - start));
+      damp = pow(damp, 2.0);
+
+      //This is the only difference from Pulse(). The color for each pixel isn't the same, but rather the
+      //  entire gradient fitted to the spread of the pulse, with some shifting from "gradient".
+      int val = thresholds[palette] * (i - start) / (finish - start);
+      val += gradient;
+      uint32_t col = ColorPalette(val);
+
+      uint32_t col2 = strand.getPixelColor(i);
+      uint8_t colors[3];
+      float avgCol = 0, avgCol2 = 0;
+      for (int k = 0; k < 3; k++) {
+        colors[k] = split(col, k) * damp * knob * pow(volume / maxVol, 2);
+        avgCol += colors[k];
+        avgCol2 += split(col2, k);
+      }
+      avgCol /= 3.0, avgCol2 /= 3.0;
+      if (avgCol > avgCol2) strand.setPixelColor(i, strand.Color(colors[0], colors[1], colors[2]));
+    }
+  }
   strand.show();
 }
 
@@ -327,7 +361,7 @@ void Snake() {
     left = !left;
   }
 
-  fade(0.95); //Leave a trail behind the dot.
+  fade(0.975); //Leave a trail behind the dot.
 
   uint32_t col = ColorPalette(-1); //Get the color at current "gradient."
 
@@ -442,9 +476,9 @@ void Glitter() {
 
     //We want the sparkles to be obvious, so we dim the background color.
     strand.setPixelColor(i, strand.Color(
-                           split(col, 0) / 8.0 * knob,
-                           split(col, 1) / 8.0 * knob,
-                           split(col, 2) / 8.0 * knob)
+                           split(col, 0) / 6.0 * knob,
+                           split(col, 1) / 6.0 * knob,
+                           split(col, 2) / 6.0 * knob)
                         );
   }
 
@@ -581,10 +615,6 @@ void CycleVisual() {
 
     gradient = 0; //Prevent overflow
 
-    //Some visuals change the brightness, so it's good to reset it to max brightness.
-    strand.setBrightness(255 * knob);
-    //                          ↑ This is one instance where the trimpot affects brightness.
-
     //Resets "visual" if there are no more visuals to cycle through.
     if (visual > VISUALS) visual = 0;
     //This is why you should change "VISUALS" if you add a visual, or the program loop over it.
@@ -615,7 +645,6 @@ void CycleVisual() {
 
     visual++;
     gradient = 0;
-    strand.setBrightness(255 * knob);
     if (visual > VISUALS) visual = 0;
     if (visual == 1) memset(pos, -2, sizeof(pos));
     if (visual == 2 || visual == 3) {
@@ -652,7 +681,7 @@ void fade(float damper) {
   for (int i = 0; i < strand.numPixels(); i++) {
 
     //Retrieve the color at the current position.
-    uint32_t col = (strand.getPixelColor(i)) ? strand.getPixelColor(i) : strand.Color(0, 0, 0);
+    uint32_t col = strand.getPixelColor(i);
 
     //If it's black, you can't fade that any further.
     if (col == 0) continue;
@@ -666,7 +695,6 @@ void fade(float damper) {
     strand.setPixelColor(i, strand.Color(colors[0] , colors[1], colors[2]));
   }
 }
-
 
 
 //"Bleeds" colors currently in the strand by averaging from a designated "Point"
@@ -694,7 +722,6 @@ void bleed(uint8_t Point) {
     }
   }
 }
-
 
 
 //As mentioned above, split() gives you one 8-bit color value
@@ -735,10 +762,10 @@ uint32_t Rainbow(unsigned int i) {
 
 uint32_t Sunset(unsigned int i) {
   if (i > 1019) return Sunset(i % 1020);
-  if (i > 764) return strand.Color((i % 255), 0, 255 - (i % 255)); //blue -> red
-  if (i > 509) return strand.Color(255 - (i % 255), 0, 255);       //purple -> blue
-  if (i > 255) return strand.Color(255, 128 - (i % 255) / 2, (i % 255)); //orange -> purple
-  return strand.Color(255, i / 2, 0);                              //red -> orange
+  if (i > 764) return strand.Color((i % 255), 0, 255 - (i % 255));          //blue -> red
+  if (i > 509) return strand.Color(255 - (i % 255), 0, 255);                //purple -> blue
+  if (i > 255) return strand.Color(255, 128 - (i % 255) / 2, (i % 255));    //orange -> purple
+  return strand.Color(255, i / 2, 0);                                       //red -> orange
 }
 
 uint32_t Ocean(unsigned int i) {
@@ -750,9 +777,9 @@ uint32_t Ocean(unsigned int i) {
 
 uint32_t PinaColada(unsigned int i) {
   if (i > 764) return PinaColada(i % 765);
-  if (i > 509) return strand.Color(255 - (i % 255) / 2, (i % 255) / 2, (i % 255) / 2); //red -> half white
-  if (i > 255) return strand.Color(255, 255 - (i % 255), 0);                           //yellow -> red
-  return strand.Color(128 + (i / 2), 128 + (i / 2), 128 - i / 2);                      //half white -> yellow
+  if (i > 509) return strand.Color(255 - (i % 255) / 2, (i % 255) / 2, (i % 255) / 2);  //red -> half white
+  if (i > 255) return strand.Color(255, 255 - (i % 255), 0);                            //yellow -> red
+  return strand.Color(128 + (i / 2), 128 + (i / 2), 128 - i / 2);                       //half white -> yellow
 }
 
 uint32_t Sulfur(unsigned int i) {
