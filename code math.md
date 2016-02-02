@@ -81,19 +81,23 @@ Case in point, the sequenced average is the objectively superior method to get a
 ---
 
 ### Fading
-Fading is done through exponential decay of each color in each pixel. The `fade()` function simply multiplies each R, G, and B value of each pixel by a number less than 1 (i.e. dividing it by a number greater than 1). Since it's multiplying each pass, the light's decrease by a proportionally decreasing amount that is relative to the current light value. Here's a graphical example, where we take a light value that starts at max brightness (255) and we decay it by 0.95 each pass, i.e. 255&times;0.95^x where x is the number of times `fade()` is called with the same decimal.
+Fading is done through exponential decay of each color in each pixel. The `fade()` function simply multiplies each R, G, and B value of each pixel by a number less than 1 (i.e. dividing it by a number greater than 1). Since it's multiplying each pass, the lights decrease by an amount that is relative to the current light value. Here's a graphical example where we take a light value that starts at max brightness (255) and we decay it by 0.95 each pass, i.e. 255&times;0.95^x where x is the number of times `fade()` is called with the same decimal:
 
 <center>![exp decay](http://i.imgur.com/8OSB4cz.png)</center>  
 
-Technically this function never reaches zero, but the strip has its cutoff (values < 0.5 are 0), and this is where the fade function simply iterates to the next pixel if it's completely off.
+Technically this function never reaches zero, but the strip has its cutoff (values < 0.5 are 0), and this is where the fade function simply iterates to the next pixel if one is completely off.
 
-We can gauge how long it will take to snuff out a light completely by simply solving for x when the function equals 0.49, and knowing that each pass of loop is at least 30 ms (because of the delay call) we can get a lower-end estimate for how long it will take to completely fade out a pixel. Here this written out for `fade()` called with `0.95` and `0.99` for an R, G, or B value of 255:
+We can gauge how long it will take to snuff out a light completely by simply solving for x when the function equals 0.49, and knowing that each pass of loop is at least 30 ms (because of the delay call) we can get a lower-end estimate for how long it will take to completely fade out a pixel. Here's this written out for `fade()` called with `0.95` and `0.99` for an R, G, or B value of 255:
 <center>![decay 0.95](http://i.imgur.com/Lzodfqd.png)</center>
+
 So you can see that a fade coefficient of 0.95 would take about 3.5 seconds to completely fade out a full light, assuming extra operations done during the loop are of negligible time.
 
 Doing the same math with 0.99 yields:
 <center>![fade 0.99](http://i.imgur.com/WPW5wtx.png)</center>
 
-Even a difference of a few _hundredths_ has exaggerated the magnitude of the effect, more than squaring it! Different fading is necessary for different modes (e.g. `Traffic()` needs a relatively low fade so the strip doesn't get washed out and you can still see the individual dots, but `Snake()` needs a long fade to make the trail more distinct). This was a design choice for each visual as well, so play around with the numbers to see what you find satisfying.
+Even a difference of a few _hundredths_ has exaggerated the magnitude of the effect, more than squaring it! Different fading is necessary for different modes ( e.g. `Traffic()` needs a relatively low fade so the strip doesn't get washed out and you can still see the individual dots, but `Snake()` needs a long fade to make the trail more distinct). This was a design choice for each visual as well, so play around with the numbers to see what you find satisfying.
 
 ---
+### "Bumps"
+
+### Pulse
