@@ -81,7 +81,7 @@ Case in point, the sequenced average is the objectively superior method to get a
 ---
 
 ### Fading
-Fading is done through exponential decay of each color in each pixel. The `fade()` function simply multiplies each R, G, and B value of each pixel by a number less than 1 (i.e. dividing it by a number greater than 1). Since it's multiplying each pass, the lights decrease by an amount that is relative to the current light value. Here's a graphical example where we take a light value that starts at max brightness (255) and we decay it by 0.95 each pass, i.e. 255&times;0.95^x where x is the number of times `fade()` is called with the same decimal:
+Fading is done through exponential decay of each color in each pixel. The `fade()` function simply multiplies each R, G, and B value of each pixel by a number less than 1 (i.e. dividing it by a number greater than 1). Since it's multiplying each pass, the lights decrease by an amount that is relative to the current light value. Here's a graphical example where we take a light value that starts at max brightness (255) and we decay it by 0.95 each pass (i.e. 255&times;0.95^x where x is the number of times `fade()` is called with the same decimal):
 
 <center>![exp decay](http://i.imgur.com/8OSB4cz.png)</center>  
 
@@ -95,9 +95,53 @@ So you can see that a fade coefficient of 0.95 would take about 3.5 seconds to c
 Doing the same math with 0.99 yields:
 <center>![fade 0.99](http://i.imgur.com/WPW5wtx.png)</center>
 
-Even a difference of a few _hundredths_ has exaggerated the magnitude of the effect, more than squaring it! Different fading is necessary for different modes ( e.g. `Traffic()` needs a relatively low fade so the strip doesn't get washed out and you can still see the individual dots, but `Snake()` needs a long fade to make the trail more distinct). This was a design choice for each visual as well, so play around with the numbers to see what you find satisfying.
+Even a difference of a few _hundredths_ has exaggerated the magnitude of the effect, more than squaring it! A linear approach can also be taken by merely subtracting the same number from each light each pass (i.e. 255-Y&times;x where Y is the number you're subtracting each pass).
+
+A graphical comparison that would fade out at the same time:
+![expo & linear](http://i.imgur.com/edPA7oN.png)
+
+Currently `fade()` uses the exponential function since it more accurately models how fire burns out, and I think that caters to a more natural-looking aesthetic, but simply changing `split(col, j) * damper;` to `split(col, j) - damper;` would make it linear if this is something you want to try. 
+
+Different fading is necessary for different modes (e.g. `Traffic()` needs a relatively low fade so the strip doesn't get washed out and you can still see the individual dots, but `Snake()` needs a long fade to make the trail more distinct). This was a design choice for each visual as well, so play around with the numbers to see what you find satisfying. 
 
 ---
 ### "Bumps"
+The Sound Detector is certainly an impressive instrument, but unfortunately we still have to "coax" the information we may want from the stream of data. Since this project lacks a spectrum analyzer (one of which you can find and read about [here](https://www.sparkfun.com/products/10468)) the best we can do is use volume intensity and oscillations in volume which may or may not correspond to a beat. This isn't necessarily a disadvantage, as we can still get some very satisfying responsiveness in the visuals.
 
-### Pulse
+Of all the sections, this one probably required the most refinement and testing, but I feel I've developed a decently responsive method that isn't _too_ responsive (i.e. reacting to every little twitch in the audio, but the big bursts). Since it's been developed to be a versatile for various ranges of music it isn't perfect, but it still manages to impress me sometimes with its beat detection. This section will be updated as more accurately responsive methods are developed and tested.
+
+The basics of "bumps" is that they are a _relatively_ large, _positive_ change in volume (i.e. current volume - last volume > 0, where at least the current volume is not noise). The easiest way to think about this is a bass drum beat, where you have quick and hard changes in volume very regularly. While bumps were initially intended to follow the beat, by nature of the data they tend to follow other patterns of a song as well, which isn't necessarily a bad thing. Because of this drift toward other patterns in the sound, it becomes a little harder to talk about bumps, but there namesake is decent enough: just "bumps" in volume regardless of what the actual sound is.
+
+As mentioned previously, bumps were intended to model the bass drum or the "beat" of a given song, so that intent is still the focus; any deviating responsiveness that occurs is just an added bonus. As such, the current implementation uses a similar sequenced average discussed in the **"Averaging"** section, but instead for an average positive change in volume instead of just volume. Consider the following table:
+
+<center>![bumps](http://i.imgur.com/yZ3yErL.png)</center>
+
+A positive change in volume was read out every time it occurred (so this does not show decreases in volume). So, how do we decide which of these bumps are worthy enough to represent the beat? Well, the answer is  convoluted. 
+
+There are two many ways to approach this problem I've found, and that's whether the threshold for a "bump" is a constant or dynamic. Both methods have their pros and cons, but I've opted for the dynamic method which utilizes a sequenced average of bumps. How the average of bumps is coded as: `if (volume - last > 0) avgBump = (avgBump + (volume - last)) / 2.0;`
+
+Essentially, every positive change in volume is averaged in. Here is the value of the average bump level (in red) of the bumps above: 
+<center>![bumps+abump](http://i.imgur.com/HmE58O7.png)</center>
+
+Hopefully you'll agree that this model for determining what is the "average" bump is pretty good at staying in the middle of the extremes. Now all that's left is what our criteria is for a proper "bump". Currently in the code is this segment: `bump = (volume - last > avgBump * .9);`
+
+The result of whether the current bump is larger than the average bump is stored in the Boolean `bump`. The .9 is there to slightly lower the average bump so the programs declaration of what a bump is or isn't is more generous. This is the optimal result I found through testing, but feel free to play around with it. Using this logic, what bumps were classified as `true` (i.e. larger than the roughly average bump) are represented by the dark blue dots:
+
+![true bump](http://i.imgur.com/yfpMWRV.png)
+
+This method generates appropriate, but conservative amounts of, bumps. And they seem to occur sort of regularly so they tend to follow the beat (especially since lower frequency noises associated with bass are more likely to register as louder volumes) 
+
+Here are where "bumps" are triggered if our condition is simply a volume difference of at least 10 (`volume - last > 10`) represented by violet dots:
+
+![threshold bump](http://i.imgur.com/EAd4gi1.png)
+
+The difference may be hard to see at first glance, but there is a much less regular appearance of bumps. Here's an overlay of the two, where the red dots are the threshold-based bump triggers, and the blue are the average-bump based triggers:
+
+![both](http://i.imgur.com/IwBfNb8.png)
+
+The threshold-based eliminates quieter "noise" bumps, however they create louder noise bumps. The average-based method has some quiet noise bumps, but these are proportionally allowed, in louder environments they eliminate those quieter bumps, while preventing the formation of louder noise bumps. 
+
+The average-based method is important when it comes to long tones, like a key being held for a while. To our ear, there are no "bumps" of any sort in this kind of sound, but the volume differences trigger bumps in the program. They are very obvious with the threshold based method, but the average-based method tends to mitigate too much responsiveness during these types of sounds, so it was ultimately the method that was implemented in the code.
+
+---
+
