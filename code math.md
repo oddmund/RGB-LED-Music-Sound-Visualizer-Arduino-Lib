@@ -88,17 +88,20 @@ Fading is done through exponential decay of each color in each pixel. The `fade(
 Technically this function never reaches zero, but the strip has its cutoff (values < 0.5 are 0), and this is where the fade function simply iterates to the next pixel if one is completely off.
 
 We can gauge how long it will take to snuff out a light completely by simply solving for x when the function equals 0.49, and knowing that each pass of loop is at least 30 ms (because of the delay call) we can get a lower-end estimate for how long it will take to completely fade out a pixel. Here's this written out for `fade()` called with `0.95` and `0.99` for an R, G, or B value of 255:
+
 <center>![decay 0.95](http://i.imgur.com/Lzodfqd.png)</center>
 
 So you can see that a fade coefficient of 0.95 would take about 3.5 seconds to completely fade out a full light, assuming extra operations done during the loop are of negligible time.
 
 Doing the same math with 0.99 yields:
+
 <center>![fade 0.99](http://i.imgur.com/WPW5wtx.png)</center>
 
 Even a difference of a few _hundredths_ has exaggerated the magnitude of the effect, more than squaring it! A linear approach can also be taken by merely subtracting the same number from each light each pass (i.e. 255-Y&times;x where Y is the number you're subtracting each pass).
 
 A graphical comparison that would fade out at the same time:
-![expo & linear](http://i.imgur.com/edPA7oN.png)
+
+<center>![expo & linear](http://i.imgur.com/edPA7oN.png)</center>
 
 Currently `fade()` uses the exponential function since it more accurately models how fire burns out, and I think that caters to a more natural-looking aesthetic, but simply changing `split(col, j) * damper;` to `split(col, j) - damper;` would make it linear if this is something you want to try. 
 
@@ -112,13 +115,13 @@ Of all the sections, this one probably required the most refinement and testing,
 
 The basics of "bumps" is that they are a _relatively_ large, _positive_ change in volume (i.e. current volume - last volume > 0, where at least the current volume is not noise). The easiest way to think about this is a bass drum beat, where you have quick and hard changes in volume very regularly. While bumps were initially intended to follow the beat, by nature of the data they tend to follow other patterns of a song as well, which isn't necessarily a bad thing. Because of this drift toward other patterns in the sound, it becomes a little harder to talk about bumps, but there namesake is decent enough: just "bumps" in volume regardless of what the actual sound is.
 
-As mentioned previously, bumps were intended to model the bass drum or the "beat" of a given song, so that intent is still the focus; any deviating responsiveness that occurs is just an added bonus. As such, the current implementation uses a similar sequenced average discussed in the **"Averaging"** section, but instead for an average positive change in volume instead of just volume. Consider the following table:
+As mentioned, bumps were intended to model the bass drum or the "beat" of a given song, so that intent is still the focus; any deviating responsiveness that occurs is just an added bonus. As such, the current implementation uses a similar sequenced average discussed in the **"Averaging"** section, but instead for an average positive change in volume instead of just volume. Consider the following table:
 
 <center>![bumps](http://i.imgur.com/yZ3yErL.png)</center>
 
 A positive change in volume was read out every time it occurred (so this does not show decreases in volume). So, how do we decide which of these bumps are worthy enough to represent the beat? Well, the answer is  convoluted. 
 
-There are two many ways to approach this problem I've found, and that's whether the threshold for a "bump" is a constant or dynamic. Both methods have their pros and cons, but I've opted for the dynamic method which utilizes a sequenced average of bumps. How the average of bumps is coded as: `if (volume - last > 0) avgBump = (avgBump + (volume - last)) / 2.0;`
+There are two main ways to approach this problem I've found, and that's whether the threshold for a "bump" is a constant or dynamic. Both methods have their pros and cons, but I've opted for the dynamic method which utilizes a sequenced average of bumps. How the average of bumps is coded as: `if (volume - last > 0) avgBump = (avgBump + (volume - last)) / 2.0;`
 
 Essentially, every positive change in volume is averaged in. Here is the value of the average bump level (in red) of the bumps above: 
 <center>![bumps+abump](http://i.imgur.com/HmE58O7.png)</center>
@@ -141,7 +144,7 @@ The difference may be hard to see at first glance, but there is a much less regu
 
 The threshold-based eliminates quieter "noise" bumps, however they create louder noise bumps. The average-based method has some quiet noise bumps, but these are proportionally allowed, in louder environments they eliminate those quieter bumps, while preventing the formation of louder noise bumps. 
 
-The average-based method is important when it comes to long tones, like a key being held for a while. To our ear, there are no "bumps" of any sort in this kind of sound, but the volume differences trigger bumps in the program. They are very obvious with the threshold based method, but the average-based method tends to mitigate too much responsiveness during these types of sounds, so it was ultimately the method that was implemented in the code.
+The average-based method is useful when it comes to long tones, like a key being held for a while. To our ear, there are no "bumps" of any sort in this kind of sound, but the volume differences trigger bumps in the program. They are very obvious with the threshold based method, but the average-based method tends to mitigate too much responsiveness during these types of sounds, so it was ultimately the method that was implemented in the code.
 
 ---
 
