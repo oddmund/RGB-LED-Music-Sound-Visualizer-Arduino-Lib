@@ -114,7 +114,7 @@ void loop() {  //This is where the magic happens. This loop produces each frame 
   CycleVisual();   //Changes visualization for shuffle mode or button press.
 
   ToggleShuffle(); //Toggles shuffle mode. Delete this if you didn't use buttons.
-  ////////////////////////////////////////////////////////////////////////////////////////////////////  
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
 
   //This is where "gradient" is modulated to prevent overflow.
   if (gradient > thresholds[palette]) {
@@ -127,11 +127,11 @@ void loop() {  //This is where the magic happens. This loop produces each frame 
   }
 
   //If there is a decent change in volume since the last pass, average it into "avgBump"
-  if (volume - last > avgVol - last && avgVol - last > 0) avgBump = (avgBump + (volume - last)) / 2.0;
+  if (volume - last > 10) avgBump = (avgBump + (volume - last)) / 2.0;
 
   //If there is a notable change in volume, trigger a "bump"
   //  avgbump is lowered just a little for comparing to make the visual slightly more sensitive to a beat.
-  bump = (volume - last) > avgBump * .9;
+  bump = (volume - last > avgBump * .9);  
 
   //If a "bump" is triggered, average the time between bumps
   if (bump) {
