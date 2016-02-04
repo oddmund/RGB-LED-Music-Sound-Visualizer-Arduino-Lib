@@ -148,3 +148,35 @@ The average-based method is useful when it comes to long tones, like a key being
 
 ---
 
+### Pulse() & PalettePulse()
+
+The only unique aspect of this visualization that hasn't already been discussed is the math that determines how it spreads from the center of the strand.
+in the code we have:
+
+    int start = LED_HALF - (LED_HALF * (volume / maxVol));
+    int finish = LED_HALF + (LED_HALF * (volume / maxVol)) + strand.numPixels() % 2;`
+
+These calculations determine where to start the "pulse" and where to end it, based on intensity of volume. An easy way to think about why this works is dividing the strip into two halves, and treating each halve like its own proportional rectangular "health bar" (for lack of a better term). For example, if we just treated the entire strand as a health bar (where all the lights being on represented 100% health), then we we'd just multiply the end point by the volume ratio to know when to end it (e.g. a ratio of .5 would only light up half of the lights from the beginning). However, this creates more of a "tower" rather than a pulse (this is initially how this mode started), but the pulse is a bit more horizontal-friendly in my opinion. 
+
+To get the pulse, we just split the LED strand in half and treat each half as its own bar. However we need to flip the side of the strand that is closer to the beginning LED so that it's a pulse and not just 2 bars, hence why we subtract the proportional length ( `(LED_HALF * (volume / maxVol))` ) from the maximum length (`LED_HALF`). For the other half, we have to make sure its bar starts at the middle of the strand, which is why its proportional length is added to `LED_HALF`. The modulus of the strand over 2 is added to account for odd quantities of LEDs.
+
+The dimming effect as the pixels get closer to the edge the pulse is done by using a sine function with a period that is adjusted to the span of the pulse (i.e. `finish - start`):
+
+`float damp = sin((i - start) * PI / float(finish - start));`
+
+`i` is the iterating variable of the for loop, so it will retrieve the changing values from the sine function. Since we don't want any negative dimness, we simply use one amp of the sine wave. This is a simple way of executing this since the sine function will give regular values between 0 and 1. You could also achieve this effect with a piece-wise function or absolute-value function, such as the following:
+
+<center>![pyramid](http://i.imgur.com/aGvCGwB.png)</center>
+
+This may seem a little convoluted as first glance, but the math works: If you have a pulse which takes up the entire strand (i.e. `start = 0` & `finish = 36` (for my strand)), then you end up with:
+
+<center>![18pyramid](http://i.imgur.com/LBs2Soj.png)</center>
+
+Which may make a little more sense as to why it works, but here's a graph to drive home the point:
+
+<center>![sinpyra](http://i.imgur.com/TMYDQRI.png)</center> 
+
+This is the linear approach to the dimming affect, where as the sine-wave is an exponential approach.
+
+
+
