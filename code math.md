@@ -164,7 +164,7 @@ The dimming effect as the pixels get closer to the edge the pulse is done by usi
 
 `float damp = sin((i - start) * PI / float(finish - start));`
 
-`i` is the iterating variable of the for loop, so it will retrieve the changing values from the sine function. Since we don't want any negative dimness, we simply use one amp of the sine wave. This is a simple way of executing this since the sine function will give regular values between 0 and 1. You could also achieve this effect with a piece-wise function or absolute-value function, such as the following:
+`i` is the iterating variable of the for loop, so it will retrieve the changing values from the sine function. Since we don't want any negative dimness, we simply use one crest of the sine wave (half its period). This is a simple way of executing this since the sine function will give regular values between 0 and 1. You could also achieve this effect with a piece-wise function or absolute-value function, such as the following:
 
 <center>![pyramid](http://i.imgur.com/aGvCGwB.png)</center>
 
@@ -178,5 +178,7 @@ Which may make a little more sense as to why it works, but here's a graph to dri
 
 This is the linear approach to the dimming affect, where as the sine-wave is an exponential approach.
 
+#brightness check
 
+brightness: magnitude or average 
 
