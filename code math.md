@@ -176,7 +176,7 @@ Which may make a little more sense as to why it works, but here's a graph to dri
 
 <center>![sinpyra](http://i.imgur.com/TMYDQRI.png)</center> 
 
-This is the linear approach to the dimming affect, where as the sine-wave is an exponential approach.
+This is the linear approach to the dimming affect, where as the sine-wave is an exponential approach. There isn't a noticeable difference in computational effort either way, the sine method was used simply because sine-waves are typically more familiar than absolute-value cusps. I also found the smooth change in brightness from the sine wave to be more aesthetically pleasing than the linear dimming, but as always feel free to try either method and see what works best for you.
 
 #brightness check
 
