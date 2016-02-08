@@ -178,7 +178,51 @@ Which may make a little more sense as to why it works, but here's a graph to dri
 
 This is the linear approach to the dimming affect, where as the sine-wave is an exponential approach. There isn't a noticeable difference in computational effort either way, the sine method was used simply because sine-waves are typically more familiar than absolute-value cusps. I also found the smooth change in brightness from the sine wave to be more aesthetically pleasing than the linear dimming, but as always feel free to try either method and see what works best for you.
 
-#brightness check
+The last feature that's a little subtle is that each pass, it checks if the current lights (after fading) are still brighter than the ones you're about to overwrite them with. The purpose of this is that I found the original mode to blink too often, and the fade effect is a waste of computing power if you're just going to overwrite the faded lights with new lights. This gives them an opportunity to fade a little bit if the song goes into a small quiet spell, and makes the experience a little more fluent.
 
-brightness: magnitude or average 
+There are two main ways to ask for the "brightness" of a particular pixel. The best way would be using vectors, and treat each color (R, G, and B) as axes. If you don't know what vectors are, they are basically a line to a point. Normally a coordinate like (x,y) would be a point, using vectors this represents a line drawn from the origin (0,0) to the point (x,y). In two dimensions, if you want the length of this vector you simply use the Pythagorean Theorem: `sqrt(x^2 + y^2)`. Similarly for a 3D vector (which is what we're pretending to make with the three color values), the length (or "magnitude") of the vector is: `sqrt(x^2 + y^2 + z^2)`. So if we treat the brightness of the 3 different colors as spacial lengths, the "longer" magnitude vectors would be "brighter" by contrast.
+
+However this isn't the method that is used. Since the colors we're comparing brightness are "similar" so to speak (they will be near each other in the gradient), you can simply take an average of the three colors and have that value represent the brightness (e.g. and RGB value of `255, 128, 0` would be  127.7). This is simply to conserve a little bit of computational effort since you're avoiding squaring, adding, and rooting, and simply just adding and dividing. 
+
+This averaging check is currently done during the `for` loop in Pulse(). It was not isolated as its own helper function since currently no other visualization needs to make use of it. If necessary, it will be abstracted into its own function in the future.
+
+---
+
+### Traffic()
+
+Not much to talk about here. The trail effect is created by `fade()`. The position of each dot of color is stored in a array. The array is the same length as the number of pixels in your strand (since that is the maximum amount of dots your strand can display). It recycles slots in the array, and the parity of its position determines whether if goes left or right. The process by which slots are recycled is a little convoluted, but in essence it scans over the array until it finds an empty slot to put the next dot in.
+
+---
+
+### Snake()
+
+Also not much to math going on here. This mode is essentially just `Traffic()` with one dot, but with more going on. Notably: the dot iterates in one direction (left or right) until a `bump` is experienced (i.e. `bump = true`). I found that the speed of iteration without any throttling (even after the 30ms delay) was inconsistent with slower tempo songs, so a little bit of modulation was imposed. Essentially it utilizes the average amount of time between bumps to determine a tempo of sorts, and if it's slower it will only iterate every modulus of `gradient`. I'm still ironing out what average times correspond well with what iteration speeds, so for the time being I won't put any hard numbers here.
+
+---
+
+### PaletteDance()
+
+This function has some complexities, but nothing hasn't been covered above. It uses the proportional color fitting seen in `PalettePulse()`, as well as the sine brightness dimming. The only difference is shifting these two functions to correspond with a position on the strip. The brightness shifts by simply performing a mathematical shift on on the sine function (e.g. sin(x + c) ). Since it's the absolute value of sine, the brightness simply loops over. Here's a graphical demonstration of the concept:
+
+<center>![sine shift](http://i.imgur.com/PKmTWdA.png)</center>
+
+Here the sine function is shifted by 10 to make the effect obvious, but that could be any arbitrary quantity. Luckily the inherent behavior of the sine function causes it to loop the brightness effect appropriately around the strand. This shifting is also executed with the color palette sizing, so it appears as if the "hump" of color is one continuous object that is moving across the strand.
+
+---
+
+### Glitter()
+
+This one was the simplest to make in my experience. Essentially just uses the palette sizing seen in the past, and slowly gradients through it to create a background for the sparkles. Since the sparkles should stand out, each color is divided by a constant to dim it. Sparkles are created every bump and are given a random position and relative sound level brightness. Since the gradient progresses over each pixel, the sparkle is immediately overwritten to create a glimmer effect. 
+
+---
+
+### Paintball()
+
+My personal favorite of all the modes. Follows the same random position logic as `Glitter()`, but instead of sparkles on a background, they are dots of color that get averaged out across the the strand. This bleeding effect is position oriented (i.e. it treats the passed position as the "center" of color blending, and averages the colors together from there). One pass of `bleed()` doesn't do much, but since it ideally takes a few cycles between each `bump`, `bleed()` can work its magic a couple of times and slowly blend the colors together. On a true `bump`, more bright dots of color are added and get bled together, so it can create some very beautiful color-scapes. 
+
+`bleed()` works specifically by check to the left and right of the center point. It then checks to the left and right of those points, and then uses the average of those 3 pixel's colors to overwrite the currently checked pixel's color. This can be confusing since there's a lot of lefts and rights here, so for example, if our center point is `18`, then it would go to position `19`, average together the colors of `18`, `19`, and `20` and overwrite `19` with that average color. Then it would go to position `17`, average the colors of `16`, `17`, and `18` and overwrite `17`. It will continue to do this until it reaches the ends of the strand. 
+
+With the way `Paintball()` works, the center point would have just been given a pure color from the specific `palette()`, so the points immediately to the left and right will be approximately half of that color, and so on. `bleed()` tends to generate its own fading effect, but as a fail-safe `fade()` is called if a bump hasn't been detected in a while.  
+
+---
 
