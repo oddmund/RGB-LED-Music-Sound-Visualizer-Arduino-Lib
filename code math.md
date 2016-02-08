@@ -1,4 +1,4 @@
-### The mathematics of the code are explained here for those of you who are curious or want clarification. Some of this is mentioned in the code itself, but without visual aid.
+ just### The mathematics of the code are explained here for those of you who are curious or want clarification. Some of this is mentioned in the code itself, but without visual aid.
 
 ---
 ### How Loud is Loud?
@@ -16,7 +16,7 @@ Consider the following graph:
 ![vols+mvol](http://i.imgur.com/9I54tbY.png)
 
 Notice how the song gets quieter near the end, and consequently no new maximum volumes are being detected. While this would appropriately adjust the visual-intensity for the remainder of this song, the following sounds may not fit into this range of loudness. Not to mention if you bump the visualizer or some other stray, excessively loud sound is detected then it would permanently diminish the intensity of the visuals until the program was reset.
-
+ 
 A simple solution to this: just lower the max volume periodically. Not once every cycle of course, but occasionally so the visualizer restricts its range to an appropriate level every so often.
 
 How I've implemented this in the program is to average the loudest volume level with the current volume level of a cycle where `gradient` is modulated. So if you were on `Rainbow()` mode, then `maxVol` will be averaged with whatever `volume` is at when `gradient` is greater than or equal to `1530` (`Rainbow()`'s loop threshold). This is an decently arbitrary check that occurs periodically, and it adjusts the `maxVol` appropriately enough (i.e. not just setting it to 0, but also allowing it to slowly reduce over time if the sound environment has gotten quieter.)
@@ -180,7 +180,7 @@ This is the linear approach to the dimming affect, where as the sine-wave is an 
 
 The last feature that's a little subtle is that each pass, it checks if the current lights (after fading) are still brighter than the ones you're about to overwrite them with. The purpose of this is that I found the original mode to blink too often, and the fade effect is a waste of computing power if you're just going to overwrite the faded lights with new lights. This gives them an opportunity to fade a little bit if the song goes into a small quiet spell, and makes the experience a little more fluent.
 
-There are two main ways to ask for the "brightness" of a particular pixel. The best way would be using vectors, and treat each color (R, G, and B) as axes. If you don't know what vectors are, they are basically a line to a point. Normally a coordinate like (x,y) would be a point, using vectors this represents a line drawn from the origin (0,0) to the point (x,y). In two dimensions, if you want the length of this vector you simply use the Pythagorean Theorem: `sqrt(x^2 + y^2)`. Similarly for a 3D vector (which is what we're pretending to make with the three color values), the length (or "magnitude") of the vector is: `sqrt(x^2 + y^2 + z^2)`. So if we treat the brightness of the 3 different colors as spacial lengths, the "longer" magnitude vectors would be "brighter" by contrast.
+There are two main ways to ask for the "brightness" of a particular pixel. The best way would be using vectors, and treat each color (R, G, and B) as axes. If you don't know what vectors are, they are basically a line to a point. Normally a coordinate like (x,y) would be a point, using vectors this represents a line drawn from the origin (0,0) to the point (x,y). In two dimensions, if you want the length of this vector you simply use the Pythagorean Theorem: `sqrt(x^2 + y^2)`. Similarly for a 3D vector (which is what we're pretending to make with the three color values), the length (or "magnitude") of the vector is: `sqrt(x^2 + y^2 + z^2)`. So if we treat the brightness of the 3 different colors as spacial lengths (i.e. `sqrt(R^2 + G^2 + B^2)`), the "longer" magnitude vectors would be "brighter" by contrast.
 
 However this isn't the method that is used. Since the colors we're comparing brightness are "similar" so to speak (they will be near each other in the gradient), you can simply take an average of the three colors and have that value represent the brightness (e.g. and RGB value of `255, 128, 0` would be  127.7). This is simply to conserve a little bit of computational effort since you're avoiding squaring, adding, and rooting, and simply just adding and dividing. 
 
@@ -190,7 +190,7 @@ This averaging check is currently done during the `for` loop in Pulse(). It was 
 
 ### Traffic()
 
-Not much to talk about here. The trail effect is created by `fade()`. The position of each dot of color is stored in a array. The array is the same length as the number of pixels in your strand (since that is the maximum amount of dots your strand can display). It recycles slots in the array, and the parity of its position determines whether if goes left or right. The process by which slots are recycled is a little convoluted, but in essence it scans over the array until it finds an empty slot to put the next dot in.
+Not much to talk about here. The trail effect is created by `fade()`. The position of each dot of color is stored in an array. The array is the same length as the number of pixels in your strand (since that is the maximum amount of dots your strand can display). It recycles slots in the array, and the parity of its position determines whether if goes left or right. The process by which slots are recycled is a little convoluted, but in essence it scans over the array until it finds an empty slot to put the next dot in.
 
 ---
 
@@ -202,7 +202,7 @@ Also not much to math going on here. This mode is essentially just `Traffic()` w
 
 ### PaletteDance()
 
-This function has some complexities, but nothing hasn't been covered above. It uses the proportional color fitting seen in `PalettePulse()`, as well as the sine brightness dimming. The only difference is shifting these two functions to correspond with a position on the strip. The brightness shifts by simply performing a mathematical shift on on the sine function (e.g. sin(x + c) ). Since it's the absolute value of sine, the brightness simply loops over. Here's a graphical demonstration of the concept:
+This function has some complexities, but nothing that hasn't been covered above. It uses the proportional color fitting seen in `PalettePulse()`, as well as the sine brightness dimming. The only difference is shifting these two functions to correspond with a position on the strip. The brightness shifts by simply performing a mathematical shift on on the sine function (e.g. sin(x + c) ). Since it's the absolute value of sine, the brightness simply loops over. Here's a graphical demonstration of the concept:
 
 <center>![sine shift](http://i.imgur.com/PKmTWdA.png)</center>
 
@@ -212,7 +212,7 @@ Here the sine function is shifted by 10 to make the effect obvious, but that cou
 
 ### Glitter()
 
-This one was the simplest to make in my experience. Essentially just uses the palette sizing seen in the past, and slowly gradients through it to create a background for the sparkles. Since the sparkles should stand out, each color is divided by a constant to dim it. Sparkles are created every bump and are given a random position and relative sound level brightness. Since the gradient progresses over each pixel, the sparkle is immediately overwritten to create a glimmer effect. 
+This one was the simplest to make in my experience. Essentially just uses the palette sizing seen above, and slowly gradients through it to create a background for the sparkles. Since the sparkles should stand out, each color is divided by a constant to dim it. Sparkles are created every bump and are given a random position and relative sound level brightness. Since the gradient progresses over each pixel, the sparkle is immediately overwritten to create a glimmer effect. 
 
 ---
 
