@@ -1,30 +1,63 @@
+/*
+ * Visualizer.cpp - Library version of visualization code for Arduino, Sparkfun Sound Detector and Adafruit NeoPixels strand.
+ *
+ * Library based on https://github.com/bartlettmic/SparkFun-RGB-LED-Music-Sound-Visualizer-Arduino-Code 
+ * modifications by: Oddmund Møgedal 
+ * date: 2018-04-15
+ *
+ * This file is derived from Visualizer_program.ino
+ * which is part of:
+ *
+ * SparkFun Addressable RGB LED Sound and Music Visualizer Tutorial Arduino Code
+ * by: Michael Bartlett
+ * SparkFun Electronics
+ * date: 2/7/16
+ * license: Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)
+ * Do whatever you'd like with this code, use it for any purpose.
+ * Please attribute and keep this license.
+ *  
+ * PLEASE NOTE: 
+ * Only one instance of Visualizer is currently possible because of the use of static global variables for state.
+ *  
+ * UNTESTED:
+ * To use the Traffic() visual, define VISUALIZER_TRAFFIC_LED_TOTAL in this header file to the same as 
+ * your pixelStrandPixels to allocate extra memory.
+ *
+ * e.g.: 
+ *  #define VISUALIZER_TRAFFIC_LED_TOTAL 32
+ * in this header file.
+ *
+ */
+
+#include "Visualizer.h"
+
 //SparkFun Addressable RGB LED Sound and Music Visualizer Tutorial Arduino Code by Michael Bartlett
-
-//Libraries
-#include <Adafruit_NeoPixel.h>  //Library to simplify interacting with the LED strand
-#ifdef __AVR__
-#include <avr/power.h>   //Includes the library for power reduction registers if your chip supports them. 
-#endif                   //More info: http://www.nongnu.org/avr-libc/user-manual/group__avr__power.htlm
-
-//Constants (change these as necessary)
-#define LED_PIN   A5  //Pin for the pixel strand. Can be analog or digital.
-#define LED_TOTAL 36  //Change this to the number of LEDs in your strand.
-#define LED_HALF  LED_TOTAL/2
-#define VISUALS   6   //Change this accordingly if you add/remove a visual in the switch-case in Visualize()
-
-#define AUDIO_PIN A0  //Pin for the envelope of the sound detector
-#define KNOB_PIN  A1  //Pin for the trimpot 10K
-#define BUTTON_1  6   //Button 1 cycles color palettes
-#define BUTTON_2  5   //Button 2 cycles visualization modes
-#define BUTTON_3  4   //Button 3 toggles shuffle mode (automated changing of color and visual)
 
 //////////<Globals>
 //  These values either need to be remembered from the last pass of loop() or
 //  need to be accessed by several functions in one pass, so they need to be global.
 
-Adafruit_NeoPixel strand = Adafruit_NeoPixel(LED_TOTAL, LED_PIN, NEO_GRB + NEO_KHZ800);  //LED strand objetcs
 
-uint16_t gradient = 0; //Used to iterate and loop through each color palette gradually
+// Use static globals for now, as a simple form of encapsulation
+static int led_pin;
+static int audio_pin;
+static int led_total;
+static int led_half;
+int waitBetweenMillis = 30; //Paces visuals so they aren't too fast to be enjoyable
+static unsigned long prevStartOnceLoop = 0;
+
+static Adafruit_NeoPixel strand;  //LED strand objects
+
+#ifdef VISUALIZER_TRAFFIC_LED_TOTAL 
+  #define VISUALS   6   //Change this accordingly if you add/remove a visual in the switch-case in Visualize()
+  //For Traffic() visual
+  static int8_t pos[VISUALIZER_TRAFFIC_LED_TOTAL] = { -2};    //Stores a population of color "dots" to iterate across the LED strand.
+  static uint8_t rgb[VISUALIZER_TRAFFIC_LED_TOTAL][3] = {0};  //Stores each dot's specific RGB values.
+#else
+  #define VISUALS   5   //Change this accordingly if you add/remove a visual in the switch-case in Visualize()
+#endif
+
+static uint16_t gradient = 0; //Used to iterate and loop through each color palette gradually
 
 //IMPORTANT:
 //  This array holds the "threshold" of each color function (i.e. the largest number they take before repeating).
@@ -32,18 +65,18 @@ uint16_t gradient = 0; //Used to iterate and loop through each color palette gra
 //  keep "gradient" from overflowing, the color functions themselves can take any positive value. For example, the
 //  largest value Rainbow() takes before looping is 1529, so "gradient" should reset after 1529, as listed.
 //     Make sure you add/remove values accordingly if you add/remove a color function in the switch-case in ColorPalette().
-uint16_t thresholds[] = {1529, 1019, 764, 764, 764, 1274};
+static uint16_t thresholds[] = {1529, 1019, 764, 764, 764, 1274};
 
-uint8_t palette = 0;  //Holds the current color palette.
-uint8_t visual = 0;   //Holds the current visual being displayed.
-uint8_t volume = 0;   //Holds the volume level read from the sound detector.
-uint8_t last = 0;     //Holds the value of volume from the previous loop() pass.
+static uint8_t palette = 0;  //Holds the current color palette.
+static uint8_t visual = 0;   //Holds the current visual being displayed.
+static uint8_t volume = 0;   //Holds the volume level read from the sound detector.
+static uint8_t last = 0;     //Holds the value of volume from the previous loop() pass.
 
-float maxVol = 15;    //Holds the largest volume recorded thus far to proportionally adjust the visual's responsiveness.
-float knob = 1023.0;  //Holds the percentage of how twisted the trimpot is. Used for adjusting the max brightness.
-float avgBump = 0;    //Holds the "average" volume-change to trigger a "bump."
-float avgVol = 0;     //Holds the "average" volume-level to proportionally adjust the visual experience.
-float shuffleTime = 0;  //Holds how many seconds of runtime ago the last shuffle was (if shuffle mode is on).
+static float maxVol = 15;    //Holds the largest volume recorded thus far to proportionally adjust the visual's responsiveness.
+static float knob = 1023.0;  //Holds the percentage of how twisted the trimpot is. Used for adjusting the max brightness.
+static float avgBump = 0;    //Holds the "average" volume-change to trigger a "bump."
+static float avgVol = 0;     //Holds the "average" volume-level to proportionally adjust the visual experience.
+static float shuffleTime = 0;  //Holds how many seconds of runtime ago the last shuffle was (if shuffle mode is on).
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //NOTE: The reason "average" is quoted is because it is not a true mathematical average. This is because I have
@@ -59,96 +92,38 @@ float shuffleTime = 0;  //Holds how many seconds of runtime ago the last shuffle
 //      the sequenced average is more likely to show an accurate and proportional adjustment more fluently.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool shuffle = false;  //Toggles shuffle mode.
-bool bump = false;     //Used to pass if there was a "bump" in volume
-
-//For Traffic() visual
-int8_t pos[LED_TOTAL] = { -2};    //Stores a population of color "dots" to iterate across the LED strand.
-uint8_t rgb[LED_TOTAL][3] = {0};  //Stores each dot's specific RGB values.
+static bool shuffle = false;  //Toggles shuffle mode.
+static bool bump = false;     //Used to pass if there was a "bump" in volume
 
 //For Snake() visual
-bool left = false;  //Determines the direction of iteration. Recycled in PaletteDance()
-int8_t dotPos = 0;  //Holds which LED in the strand the dot is positioned at. Recycled in most other visuals.
-float timeBump = 0; //Holds the time (in runtime seconds) the last "bump" occurred.
-float avgTime = 0;  //Holds the "average" amount of time between each "bump" (used for pacing the dot's movement).
+static bool left = false;  //Determines the direction of iteration. Recycled in PaletteDance()
+static int8_t dotPos = 0;  //Holds which LED in the strand the dot is positioned at. Recycled in most other visuals.
+static float timeBump = 0; //Holds the time (in runtime seconds) the last "bump" occurred.
+static float avgTime = 0;  //Holds the "average" amount of time between each "bump" (used for pacing the dot's movement).
 
 //////////</Globals>
 
-
-//////////<Standard Functions>
-
-void setup() {    //Like it's named, this gets ran before any other function.
-
-  Serial.begin(9600); //Sets data rate for serial data transmission.
-
-  //Defines the buttons pins to be input.
-  pinMode(BUTTON_1, INPUT); pinMode(BUTTON_2, INPUT); pinMode(BUTTON_3, INPUT);
-
-  //Write a "HIGH" value to the button pins.
-  digitalWrite(BUTTON_1, HIGH); digitalWrite(BUTTON_2, HIGH); digitalWrite(BUTTON_3, HIGH);
-
-  strand.begin(); //Initialize the LED strand object.
-  strand.show();  //Show a blank strand, just to get the LED's ready for use.
-}
-
-
-void loop() {  //This is where the magic happens. This loop produces each frame of the visual.
-
-  volume = analogRead(AUDIO_PIN);       //Record the volume level from the sound detector
-  knob = analogRead(KNOB_PIN) / 1023.0; //Record how far the trimpot is twisted
-
-  //Sets a threshold for volume.
-  //  In practice I've found noise can get up to 15, so if it's lower, the visual thinks it's silent.
-  //  Also if the volume is less than average volume / 2 (essentially an average with 0), it's considered silent.
-  if (volume < avgVol / 2.0 || volume < 15) volume = 0;
-
-  else avgVol = (avgVol + volume) / 2.0; //If non-zeo, take an "average" of volumes.
-
-  //If the current volume is larger than the loudest value recorded, overwrite
-  if (volume > maxVol) maxVol = volume;
-
-  //Check the Cycle* functions for specific instructions if you didn't include buttons in your design.
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  CyclePalette();  //Changes palette for shuffle mode or button press.
-
-  CycleVisual();   //Changes visualization for shuffle mode or button press.
-
-  ToggleShuffle(); //Toggles shuffle mode. Delete this if you didn't use buttons.
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  //This is where "gradient" is modulated to prevent overflow.
-  if (gradient > thresholds[palette]) {
-    gradient %= thresholds[palette] + 1;
-
-    //Everytime a palette gets completed is a good time to readjust "maxVol," just in case
-    //  the song gets quieter; we also don't want to lose brightness intensity permanently
-    //  because of one stray loud sound.
-    maxVol = (maxVol + volume) / 2.0;
-  }
-
-  //If there is a decent change in volume since the last pass, average it into "avgBump"
-  if (volume - last > 10) avgBump = (avgBump + (volume - last)) / 2.0;
-
-  //If there is a notable change in volume, trigger a "bump"
-  //  avgbump is lowered just a little for comparing to make the visual slightly more sensitive to a beat.
-  bump = (volume - last > avgBump * .9);  
-
-  //If a "bump" is triggered, average the time between bumps
-  if (bump) {
-    avgTime = (((millis() / 1000.0) - timeBump) + avgTime) / 2.0;
-    timeBump = millis() / 1000.0;
-  }
-
-  Visualize();   //Calls the appropriate visualization to be displayed with the globals as they are.
-
-  gradient++;    //Increments gradient
-
-  last = volume; //Records current volume for next pass
-
-  delay(30);     //Paces visuals so they aren't too fast to be enjoyable
-}
-//////////</Standard Functions>
-
+// Forward declarartions
+void Pulse();
+void PalettePulse();
+void Snake();
+void PaletteDance();
+void Glitter();
+void Paintball();
+#ifdef VISUALIZER_TRAFFIC_LED_TOTAL
+  void Traffic();
+#endif
+uint32_t ColorPalette(float);
+uint32_t Rainbow(unsigned int i);
+uint32_t Sunset(unsigned int i);
+uint32_t Ocean(unsigned int i);
+uint32_t PinaColada(unsigned int i);
+uint32_t Sulfur(unsigned int i);
+uint32_t NoGreen(unsigned int i);
+uint32_t USA(unsigned int i);
+void fade(float damper);
+void bleed(uint8_t Point);
+uint8_t split(uint32_t color, uint8_t i );
 
 //////////<Visual Functions>
 
@@ -157,11 +132,13 @@ void Visualize() {
   switch (visual) {
     case 0: return Pulse();
     case 1: return PalettePulse();
-    case 2: return Traffic();
-    case 3: return Snake();
-    case 4: return PaletteDance();
-    case 5: return Glitter();
-    case 6: return Paintball();
+    case 2: return Snake();
+    case 3: return PaletteDance();
+    case 4: return Glitter();
+    case 5: return Paintball();
+#ifdef VISUALIZER_TRAFFIC_LED_TOTAL
+    case 6: return Traffic();
+#endif
     default: return Pulse();
   }
 }
@@ -215,9 +192,9 @@ void Pulse() {
 
     //These variables determine where to start and end the pulse since it starts from the middle of the strand.
     //  The quantities are stored in variables so they only have to be computed once (plus we use them in the loop).
-    int start = LED_HALF - (LED_HALF * (volume / maxVol));
-    int finish = LED_HALF + (LED_HALF * (volume / maxVol)) + strand.numPixels() % 2;
-    //Listed above, LED_HALF is simply half the number of LEDs on your strand. ↑ this part adjusts for an odd quantity.
+    int start = led_half - (led_half * (volume / maxVol));
+    int finish = led_half + (led_half * (volume / maxVol)) + strand.numPixels() % 2;
+    //Listed above, led_half is simply half the number of LEDs on your strand. ↑ this part adjusts for an odd quantity.
 
     for (int i = start; i < finish; i++) {
 
@@ -258,8 +235,8 @@ void PalettePulse() {
   fade(0.75);
   if (bump) gradient += thresholds[palette] / 24;
   if (volume > 0) {
-    int start = LED_HALF - (LED_HALF * (volume / maxVol));
-    int finish = LED_HALF + (LED_HALF * (volume / maxVol)) + strand.numPixels() % 2;
+    int start = led_half - (led_half * (volume / maxVol));
+    int finish = led_half + (led_half * (volume / maxVol)) + strand.numPixels() % 2;
     for (int i = start; i < finish; i++) {
       float damp = sin((i - start) * PI / float(finish - start));
       damp = pow(damp, 2.0);
@@ -285,6 +262,7 @@ void PalettePulse() {
   strand.show();
 }
 
+#ifdef VISUALIZER_TRAFFIC_LED_TOTAL
 
 //TRAFFIC
 //Dots racing into each other
@@ -348,6 +326,7 @@ void Traffic() {
   strand.show(); //Again, don't forget to actually show the lights!
 }
 
+#endif
 
 //SNAKE
 //Dot sweeping back and forth to the beat
@@ -427,7 +406,7 @@ void PaletteDance() {
       sinVal *= knob;
 
       unsigned int val = float(thresholds[palette] + 1)
-                         //map takes a value between -LED_TOTAL and +LED_TOTAL and returns one between 0 and LED_TOTAL
+                         //map takes a value between -led_total and +led_total and returns one between 0 and led_total
                          * (float(i + map(dotPos, -1 * (strand.numPixels() - 1), strand.numPixels() - 1, 0, strand.numPixels() - 1))
                             / float(strand.numPixels()))
                          + (gradient);
@@ -562,35 +541,14 @@ void Cycle() {
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
 //////////</Visual Functions>
 
 
 //////////<Helper Functions>
 
+
 void CyclePalette() {
-
-  //IMPORTANT: Delete this whole if-block if you didn't use buttons//////////////////////////////////
-
-  //If a button is pushed, it sends a "false" reading
-  if (!digitalRead(BUTTON_1)) {
-
-    palette++;     //This is this button's purpose, to change the color palette.
-
-    //If palette is larger than the population of thresholds[], start back at 0
-    //  This is why it's important you add a threshold to the array if you add a
-    //  palette, or the program will cylce back to Rainbow() before reaching it.
-    if (palette >= sizeof(thresholds) / 2) palette = 0;
-
-    gradient %= thresholds[palette]; //Modulate gradient to prevent any overflow that may occur.
-
-    //The button is close to the microphone on my setup, so the sound of pushing it is
-    //  relatively loud to the sound detector. This causes the visual to think a loud noise
-    //  happened, so the delay simply allows the sound of the button to pass unabated.
-    delay(350);
-
-    maxVol = avgVol;  //Set max volume to average for a fresh experience.
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////
 
   //If shuffle mode is on, and it's been 30 seconds since the last shuffle, and then a modulo
   //  of gradient to get a random decision between palette or visualization shuffle
@@ -605,36 +563,7 @@ void CyclePalette() {
   }
 }
 
-
 void CycleVisual() {
-
-  //IMPORTANT: Delete this whole if-block if you didn't use buttons//////////////////////////////////
-  if (!digitalRead(BUTTON_2)) {
-
-    visual++;     //The purpose of this button: change the visual mode
-
-    gradient = 0; //Prevent overflow
-
-    //Resets "visual" if there are no more visuals to cycle through.
-    if (visual > VISUALS) visual = 0;
-    //This is why you should change "VISUALS" if you add a visual, or the program loop over it.
-
-    //Resets the positions of all dots to nonexistent (-2) if you cycle to the Traffic() visual.
-    if (visual == 1) memset(pos, -2, sizeof(pos));
-
-    //Gives Snake() and PaletteDance() visuals a random starting point if cycled to.
-    if (visual == 2 || visual == 3) {
-      randomSeed(analogRead(0));
-      dotPos = random(strand.numPixels());
-    }
-
-    //Like before, this delay is to prevent a button press from affecting "maxVol."
-    delay(350);
-
-    maxVol = avgVol; //Set max volume to average for a fresh experience
-  }
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////
 
   //If shuffle mode is on, and it's been 30 seconds since the last shuffle, and then a modulo
   //  of gradient WITH INVERTED LOGIC to get a random decision between what to shuffle.
@@ -646,32 +575,16 @@ void CycleVisual() {
     visual++;
     gradient = 0;
     if (visual > VISUALS) visual = 0;
-    if (visual == 1) memset(pos, -2, sizeof(pos));
-    if (visual == 2 || visual == 3) {
+#ifdef VISUALIZER_TRAFFIC_LED_TOTAL
+    if (visual == 6) memset(pos, -2, sizeof(pos)); // TODO: was set for 1, which was PalettePulse, not Traffic 
+#endif
+    if (visual == 6 || visual == 2) {
       randomSeed(analogRead(0));
       dotPos = random(strand.numPixels());
     }
     maxVol = avgVol;
   }
 }
-
-
-//IMPORTANT: Delete this function  if you didn't use buttons./////////////////////////////////////////
-void ToggleShuffle() {
-  if (!digitalRead(BUTTON_3)) {
-
-    shuffle = !shuffle; //This button's purpose: toggle shuffle mode.
-
-    //This delay is to prevent the button from taking another reading while you're pressing it
-    delay(500);
-
-    //Reset these things for a fresh experience.
-    maxVol = avgVol;
-    avgBump = 0;
-  }
-}
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 //Fades lights by multiplying them by a value between 0 and 1 each pass of loop().
 void fade(float damper) {
@@ -810,3 +723,130 @@ uint32_t USA(unsigned int i) {
 }
 
 //////////</Palette Functions>
+
+
+void OncePerLoop() {
+
+  //This is where the magic happens. This loop produces each frame of the visual.
+
+  if (millis() > prevStartOnceLoop + waitBetweenMillis) {
+  
+    prevStartOnceLoop = millis();
+
+    volume = analogRead(audio_pin);       //Record the volume level from the sound detector
+
+    //Sets a threshold for volume.
+    //  In practice I've found noise can get up to 15, so if it's lower, the visual thinks it's silent.
+    //  Also if the volume is less than average volume / 2 (essentially an average with 0), it's considered silent.
+    if (volume < avgVol / 2.0 || volume < 15) volume = 0;
+
+    else avgVol = (avgVol + volume) / 2.0; //If non-zeo, take an "average" of volumes.
+
+    //If the current volume is larger than the loudest value recorded, overwrite
+    if (volume > maxVol) maxVol = volume;
+
+    CyclePalette();  //Changes palette for shuffle mode or button press.
+
+    CycleVisual();   //Changes visualization for shuffle mode or button press.
+
+    //This is where "gradient" is modulated to prevent overflow.
+    if (gradient > thresholds[palette]) {
+      gradient %= thresholds[palette] + 1;
+
+      //Everytime a palette gets completed is a good time to readjust "maxVol," just in case
+      //  the song gets quieter; we also don't want to lose brightness intensity permanently
+      //  because of one stray loud sound.
+      maxVol = (maxVol + volume) / 2.0;
+    }
+
+    //If there is a decent change in volume since the last pass, average it into "avgBump"
+    if (volume - last > 10) avgBump = (avgBump + (volume - last)) / 2.0;
+
+    //If there is a notable change in volume, trigger a "bump"
+    //  avgbump is lowered just a little for comparing to make the visual slightly more sensitive to a beat.
+    bump = (volume - last > avgBump * .9);  
+
+    //If a "bump" is triggered, average the time between bumps
+    if (bump) {
+      avgTime = (((millis() / 1000.0) - timeBump) + avgTime) / 2.0;
+      timeBump = millis() / 1000.0;
+    }
+
+    Visualize();   //Calls the appropriate visualization to be displayed with the globals as they are.
+
+    gradient++;    //Increments gradient
+
+    last = volume; //Records current volume for next pass
+    
+  }
+}
+
+Visualizer::Visualizer(int pixelStrandPin, int pixelStrandPixels, int audioEnvelopePin)
+{
+  led_pin = pixelStrandPin;
+  audio_pin = audioEnvelopePin;
+  led_total = pixelStrandPixels;
+  led_half = led_total/2;
+  
+  strand.updateType(NEO_GRB + NEO_KHZ800);
+  strand.updateLength(led_total);
+  strand.setPin(led_pin);
+
+}
+
+void Visualizer::start()
+{
+  strand.begin(); //Initialize the LED strand object.
+  strand.show();  //Show a blank strand, just to get the LED's ready for use.
+}
+
+void Visualizer::clearPixels()
+{
+  strand.clear(); //Clear allpixels.
+  strand.show();  //Show a blank strand
+}
+
+void Visualizer::oncePerLoop()
+{
+  OncePerLoop();
+}
+
+int Visualizer::getWaitMillis()
+{
+  return waitBetweenMillis;
+}
+
+void Visualizer::setWaitMillis(int waitMillis)
+{
+  waitBetweenMillis = waitMillis;
+}
+
+float Visualizer::getLightLevel()
+{
+  return knob;
+}
+
+void Visualizer::setLightLevel(float lightLevel)
+{
+  knob = lightLevel;
+}
+
+uint8_t Visualizer::getVisualMode()
+{
+  return visual;
+}
+
+void Visualizer::setVisualMode(uint8_t visualMode)
+{
+  visual = visualMode;
+}
+
+bool Visualizer::getShuffle()
+{
+  return shuffle;
+}
+
+void Visualizer::setShuffle(bool shuffleBool)
+{
+  shuffle = shuffleBool;
+}

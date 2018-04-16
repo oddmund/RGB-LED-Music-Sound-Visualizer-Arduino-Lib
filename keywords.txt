@@ -1,0 +1,12 @@
+Visualizer	KEYWORD1
+start	KEYWORD2
+clearPixels	KEYWORD2
+oncePerLoop	KEYWORD2
+getWaitMillis	KEYWORD2
+setWaitMillis	KEYWORD2
+getLightLevel	KEYWORD2
+setLightLevel	KEYWORD2
+getVisualMode	KEYWORD2
+setVisualMode	KEYWORD2
+getShuffle	KEYWORD2
+setShuffle	KEYWORD2
