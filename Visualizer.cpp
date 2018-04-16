@@ -31,7 +31,6 @@
 
 #include "Visualizer.h"
 
-//SparkFun Addressable RGB LED Sound and Music Visualizer Tutorial Arduino Code by Michael Bartlett
 
 //////////<Globals>
 //  These values either need to be remembered from the last pass of loop() or
